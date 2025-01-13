@@ -14,6 +14,7 @@ import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { supabase } from "@/lib/supabase";
 import { Ionicons } from '@expo/vector-icons';
+import { useSettings } from '../../context/SettingsContext';
 
 type RootStackParamList = {
     Login: undefined;
@@ -48,6 +49,7 @@ const Profile = () => {
         goal: "No specific goal"
     });
     const [notificationsEnabled, setNotificationsEnabled] = useState(true);
+    const { hapticEnabled, toggleHaptic } = useSettings();
 
     useEffect(() => {
         fetchProfile();
@@ -171,6 +173,18 @@ const Profile = () => {
                     <Switch
                         value={notificationsEnabled}
                         onValueChange={setNotificationsEnabled}
+                        trackColor={{ false: "#D1D1D6", true: "#6B8CFF" }}
+                        thumbColor={"#FFFFFF"}
+                    />
+                </View>
+                <View style={styles.menuItem}>
+                    <View style={styles.menuItemLeft}>
+                        <Ionicons name="notifications-outline" size={24} color="#666" style={styles.menuIcon} />
+                        <Text style={styles.menuText}>Haptic Feedback</Text>
+                    </View>
+                    <Switch
+                        value={hapticEnabled}
+                        onValueChange={toggleHaptic}
                         trackColor={{ false: "#D1D1D6", true: "#6B8CFF" }}
                         thumbColor={"#FFFFFF"}
                     />
