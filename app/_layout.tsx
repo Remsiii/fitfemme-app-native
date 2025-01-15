@@ -5,6 +5,8 @@ import { SplashScreen, Stack } from 'expo-router';
 import { useEffect } from 'react';
 import { useColorScheme } from 'react-native';
 import { SettingsProvider } from '../context/SettingsContext';
+import { supabase } from '../lib/supabase';
+import { useRouter } from 'expo-router';
 
 export {
   // Catch any errors thrown by the Layout component.
@@ -24,6 +26,18 @@ export default function RootLayout() {
     SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
     ...FontAwesome.font,
   });
+
+  const router = useRouter();
+
+  useEffect(() => {
+    const checkAuth = async () => {
+      const session = await supabase.auth.getSession();
+      if (!session.data.session) {
+        router.replace('/login');
+      }
+    };
+    checkAuth();
+  }, []);
 
   // Expo Router uses Error Boundaries to catch errors in the navigation tree.
   useEffect(() => {
@@ -52,6 +66,8 @@ function RootLayoutNav() {
         <Stack>
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
           <Stack.Screen name="settings" options={{ presentation: 'modal', title: 'Settings' }} />
+          <Stack.Screen name="login" />
+          <Stack.Screen name="register" />
         </Stack>
       </ThemeProvider>
     </SettingsProvider>

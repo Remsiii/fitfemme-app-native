@@ -3,8 +3,9 @@ import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, Alert, Styl
 import { supabase } from '@/lib/supabase';
 import { useRouter } from 'expo-router';
 import LoginScreenComponent from '../components/LoginSignUp/LoginScreen';
+import RegisterScreen from '@/components/LoginSignUp/RegisterScreen';
 
-export default function Login() {
+export default function Register() {
     const router = useRouter();
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -34,7 +35,7 @@ export default function Login() {
     };
 
     return (
-        <LoginScreenComponent />
+        <RegisterScreen />
     );
 }
 

@@ -17,7 +17,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSettings } from '../../context/SettingsContext';
 
 type RootStackParamList = {
-    Login: undefined;
+    login: undefined;
     Profile: undefined;
     PersonalData: undefined;
     Achievement: undefined;
@@ -31,6 +31,7 @@ type RootStackParamList = {
 const Profile = () => {
     const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
     const [isLoading, setIsLoading] = useState(true);
+    const [showMenu, setShowMenu] = useState(false);
     const [profile, setProfile] = useState<{
         name: string;
         email: string;
@@ -60,7 +61,7 @@ const Profile = () => {
             const { data: authUser, error: authError } = await supabase.auth.getUser();
 
             if (authError || !authUser?.user) {
-                navigation.navigate("Login");
+                navigation.navigate("login");
                 throw new Error("User is not authenticated");
             }
 
@@ -98,6 +99,43 @@ const Profile = () => {
         }
     };
 
+    const handleLogout = async () => {
+        try {
+            const { error } = await supabase.auth.signOut();
+            if (error) throw error;
+            navigation.replace('login');
+        } catch (error) {
+            Alert.alert('Error', 'Failed to log out');
+        }
+    };
+
+    const renderThreeDotsMenu = () => {
+        return (
+            <TouchableOpacity
+                style={styles.menuButton}
+                onPress={() => setShowMenu(!showMenu)}>
+                <Ionicons name="ellipsis-vertical" size={24} color="#000" />
+            </TouchableOpacity>
+        );
+    };
+
+    const renderMenu = () => {
+        if (!showMenu) return null;
+        return (
+            <View style={styles.menuContainer}>
+                <TouchableOpacity
+                    style={styles.dropdownMenuItem}
+                    onPress={() => {
+                        setShowMenu(false);
+                        handleLogout();
+                    }}>
+                    <Ionicons name="log-out-outline" size={20} color="#FF0000" />
+                    <Text style={[styles.menuItemText, { color: '#FF0000' }]}>Logout</Text>
+                </TouchableOpacity>
+            </View>
+        );
+    };
+
     if (isLoading) {
         return (
             <View style={styles.loader}>
@@ -117,87 +155,87 @@ const Profile = () => {
     );
 
     return (
-        <ScrollView style={styles.container}>
+        <View style={styles.container}>
             <View style={styles.header}>
                 <TouchableOpacity onPress={() => navigation.goBack()}>
                     <Ionicons name="chevron-back" size={24} color="#000" />
                 </TouchableOpacity>
-                <Text style={styles.headerTitle}>Profile</Text>
-                <TouchableOpacity>
-                    <Ionicons name="ellipsis-horizontal" size={24} color="#000" />
-                </TouchableOpacity>
+                {/* <Text style={styles.headerTitle}>Profile</Text> */}
+                {renderThreeDotsMenu()}
             </View>
-
-            <View style={styles.profileSection}>
-                <Image
-                    source={profile.avatar_url ? { uri: profile.avatar_url } : require("../../assets/images/react-logo.png")}
-                    style={styles.avatar}
-                />
-                <Text style={styles.name}>{profile.name}</Text>
-                <Text style={styles.program}>{profile.goal}</Text>
-                <TouchableOpacity style={styles.editButton}>
-                    <Text style={styles.editButtonText}>Edit</Text>
-                </TouchableOpacity>
-
-                <View style={styles.statsContainer}>
-                    <View style={styles.statItem}>
-                        <Text style={styles.statValue}>{profile.height}</Text>
-                        <Text style={styles.statLabel}>Height</Text>
-                    </View>
-                    <View style={styles.statItem}>
-                        <Text style={styles.statValue}>{profile.weight}</Text>
-                        <Text style={styles.statLabel}>Weight</Text>
-                    </View>
-                    <View style={styles.statItem}>
-                        <Text style={styles.statValue}>{profile.age}</Text>
-                        <Text style={styles.statLabel}>Age</Text>
-                    </View>
-                </View>
-            </View>
-
-            <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Account</Text>
-                <MenuLink icon="person-outline" title="Personal Data" onPress={() => navigation.navigate("PersonalData")} />
-                <MenuLink icon="trophy-outline" title="Achievement" onPress={() => navigation.navigate("Achievement")} />
-                <MenuLink icon="time-outline" title="Activity History" onPress={() => navigation.navigate("ActivityHistory")} />
-                <MenuLink icon="fitness-outline" title="Workout Progress" onPress={() => navigation.navigate("WorkoutProgress")} />
-            </View>
-
-            <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Notification</Text>
-                <View style={styles.menuItem}>
-                    <View style={styles.menuItemLeft}>
-                        <Ionicons name="notifications-outline" size={24} color="#666" style={styles.menuIcon} />
-                        <Text style={styles.menuText}>Pop-up Notification</Text>
-                    </View>
-                    <Switch
-                        value={notificationsEnabled}
-                        onValueChange={setNotificationsEnabled}
-                        trackColor={{ false: "#D1D1D6", true: "#6B8CFF" }}
-                        thumbColor={"#FFFFFF"}
+            {renderMenu()}
+            <ScrollView style={styles.scrollView}>
+                <View style={styles.profileSection}>
+                    <Image
+                        source={profile.avatar_url ? { uri: profile.avatar_url } : require("../../assets/images/react-logo.png")}
+                        style={styles.avatar}
                     />
-                </View>
-                <View style={styles.menuItem}>
-                    <View style={styles.menuItemLeft}>
-                        <Ionicons name="notifications-outline" size={24} color="#666" style={styles.menuIcon} />
-                        <Text style={styles.menuText}>Haptic Feedback</Text>
-                    </View>
-                    <Switch
-                        value={hapticEnabled}
-                        onValueChange={toggleHaptic}
-                        trackColor={{ false: "#D1D1D6", true: "#6B8CFF" }}
-                        thumbColor={"#FFFFFF"}
-                    />
-                </View>
-            </View>
+                    <Text style={styles.name}>{profile.name}</Text>
+                    <Text style={styles.program}>{profile.goal}</Text>
+                    <TouchableOpacity style={styles.editButton}>
+                        <Text style={styles.editButtonText}>Edit</Text>
+                    </TouchableOpacity>
 
-            <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Other</Text>
-                <MenuLink icon="mail-outline" title="Contact Us" onPress={() => navigation.navigate("ContactUs")} />
-                <MenuLink icon="shield-outline" title="Privacy Policy" onPress={() => navigation.navigate("PrivacyPolicy")} />
-                <MenuLink icon="settings-outline" title="Settings" onPress={() => navigation.navigate("Settings")} />
-            </View>
-        </ScrollView>
+                    <View style={styles.statsContainer}>
+                        <View style={styles.statItem}>
+                            <Text style={styles.statValue}>{profile.height}</Text>
+                            <Text style={styles.statLabel}>Height</Text>
+                        </View>
+                        <View style={styles.statItem}>
+                            <Text style={styles.statValue}>{profile.weight}</Text>
+                            <Text style={styles.statLabel}>Weight</Text>
+                        </View>
+                        <View style={styles.statItem}>
+                            <Text style={styles.statValue}>{profile.age}</Text>
+                            <Text style={styles.statLabel}>Age</Text>
+                        </View>
+                    </View>
+                </View>
+
+                <View style={styles.section}>
+                    <Text style={styles.sectionTitle}>Account</Text>
+                    <MenuLink icon="person-outline" title="Personal Data" onPress={() => navigation.navigate("PersonalData")} />
+                    <MenuLink icon="trophy-outline" title="Achievement" onPress={() => navigation.navigate("Achievement")} />
+                    <MenuLink icon="time-outline" title="Activity History" onPress={() => navigation.navigate("ActivityHistory")} />
+                    <MenuLink icon="fitness-outline" title="Workout Progress" onPress={() => navigation.navigate("WorkoutProgress")} />
+                </View>
+
+                <View style={styles.section}>
+                    <Text style={styles.sectionTitle}>Notification</Text>
+                    <View style={styles.menuItem}>
+                        <View style={styles.menuItemLeft}>
+                            <Ionicons name="notifications-outline" size={24} color="#666" style={styles.menuIcon} />
+                            <Text style={styles.menuText}>Pop-up Notification</Text>
+                        </View>
+                        <Switch
+                            value={notificationsEnabled}
+                            onValueChange={setNotificationsEnabled}
+                            trackColor={{ false: "#D1D1D6", true: "#6B8CFF" }}
+                            thumbColor={"#FFFFFF"}
+                        />
+                    </View>
+                    <View style={styles.menuItem}>
+                        <View style={styles.menuItemLeft}>
+                            <Ionicons name="notifications-outline" size={24} color="#666" style={styles.menuIcon} />
+                            <Text style={styles.menuText}>Haptic Feedback</Text>
+                        </View>
+                        <Switch
+                            value={hapticEnabled}
+                            onValueChange={toggleHaptic}
+                            trackColor={{ false: "#D1D1D6", true: "#6B8CFF" }}
+                            thumbColor={"#FFFFFF"}
+                        />
+                    </View>
+                </View>
+
+                <View style={styles.section}>
+                    <Text style={styles.sectionTitle}>Other</Text>
+                    <MenuLink icon="mail-outline" title="Contact Us" onPress={() => navigation.navigate("ContactUs")} />
+                    <MenuLink icon="shield-outline" title="Privacy Policy" onPress={() => navigation.navigate("PrivacyPolicy")} />
+                    <MenuLink icon="settings-outline" title="Settings" onPress={() => navigation.navigate("Settings")} />
+                </View>
+            </ScrollView>
+        </View>
     );
 };
 
@@ -303,6 +341,38 @@ const styles = StyleSheet.create({
         fontSize: 16,
         color: "#333",
     },
+    menuButton: {
+        padding: 10,
+        position: 'absolute',
+        right: 10,
+        top: 10,
+    },
+    menuContainer: {
+        position: 'absolute',
+        right: 10,
+        top: 50,
+        backgroundColor: 'white',
+        borderRadius: 8,
+        padding: 5,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.25,
+        shadowRadius: 3.84,
+        elevation: 5,
+        zIndex: 1000,
+    },
+    menuItemText: {
+        marginLeft: 10,
+        fontSize: 16,
+    },
+    dropdownMenuItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: 10,
+    },
+    scrollView: {
+        flex: 1,
+    }
 });
 
 export default Profile;

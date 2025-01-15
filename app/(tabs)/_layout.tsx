@@ -26,12 +26,12 @@ export default function TabLayout() {
     <Tabs
       screenOptions={{
         tabBarActiveTintColor: '#6B8CFF',
-        tabBarStyle: { 
-          backgroundColor: colorScheme === 'dark' ? '#000' : '#fff', 
-          borderTopWidth: 0, 
-          elevation: 0, 
-          shadowOpacity: 0, 
-          paddingBottom: 5 
+        tabBarStyle: {
+          backgroundColor: colorScheme === 'dark' ? '#000' : '#fff',
+          borderTopWidth: 0,
+          elevation: 0,
+          shadowOpacity: 0,
+          paddingBottom: 5
         },
         tabBarItemStyle: { paddingVertical: 5 },
         headerTransparent: true,
@@ -40,9 +40,9 @@ export default function TabLayout() {
           backgroundColor: 'transparent',
           opacity: 0,
         },
-        headerShadowVisible: false,  
-        headerShown: true, 
-        contentStyle: dynamicStyles.container,
+        headerShadowVisible: false,
+        headerShown: true,
+        // contentStyle: dynamicStyles.container,
       }}
       screenListeners={{
         tabPress: () => {
@@ -52,8 +52,8 @@ export default function TabLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: '',  
-          tabBarIcon: ({ color }) => <TabBarIcon name="home" color={color} />,  
+          title: '',
+          tabBarIcon: ({ color }) => <TabBarIcon name="home" color={color} />,
           headerRight: () => (
             <Link href="/settings" asChild>
               <Pressable onPress={() => triggerHaptic()}>
@@ -73,7 +73,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="profile"
         options={{
-          title: '',  
+          title: '',
           tabBarIcon: ({ color }) => <TabBarIcon name="user" color={color} />,
         }}
       />
