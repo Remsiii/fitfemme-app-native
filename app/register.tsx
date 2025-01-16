@@ -2,41 +2,10 @@ import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, Alert, StyleSheet } from 'react-native';
 import { supabase } from '@/lib/supabase';
 import { useRouter } from 'expo-router';
-import LoginScreenComponent from '../components/LoginSignUp/LoginScreen';
 import RegisterScreen from '@/components/LoginSignUp/RegisterScreen';
 
 export default function Register() {
-    const router = useRouter();
-    const [email, setEmail] = useState('');
-    const [password, setPassword] = useState('');
-    const [isLoading, setIsLoading] = useState(false);
-
-    const handleLogin = async () => {
-        if (!email || !password) {
-            Alert.alert('Error', 'Please fill in all fields');
-            return;
-        }
-
-        setIsLoading(true);
-        try {
-            const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-
-            if (error) throw error;
-
-            if (data.user) {
-                Alert.alert('Success', 'Successfully logged in!');
-                router.replace('/(tabs)');
-            }
-        } catch (error: any) {
-            Alert.alert('Error', error.message || 'An error occurred');
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
-    return (
-        <RegisterScreen />
-    );
+    return <RegisterScreen />;
 }
 
 const styles = StyleSheet.create({

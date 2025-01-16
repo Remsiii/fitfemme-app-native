@@ -10,6 +10,7 @@ import {
     Switch,
     Alert,
 } from "react-native";
+import { useRouter } from "expo-router";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { supabase } from "@/lib/supabase";
@@ -29,9 +30,11 @@ type RootStackParamList = {
 };
 
 const Profile = () => {
+    const router = useRouter();
     const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
     const [isLoading, setIsLoading] = useState(true);
     const [showMenu, setShowMenu] = useState(false);
+    const [isAdmin, setIsAdmin] = useState(false);
     const [profile, setProfile] = useState<{
         name: string;
         email: string;
@@ -53,8 +56,27 @@ const Profile = () => {
     const { hapticEnabled, toggleHaptic } = useSettings();
 
     useEffect(() => {
+        checkAdminStatus();
         fetchProfile();
     }, []);
+
+    const checkAdminStatus = async () => {
+        try {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) return;
+
+            const { data, error } = await supabase
+                .from('profiles')
+                .select('is_admin')
+                .eq('id', user.id)
+                .single();
+
+            if (error) throw error;
+            setIsAdmin(data?.is_admin || false);
+        } catch (error) {
+            console.error('Error checking admin status:', error);
+        }
+    };
 
     const fetchProfile = async () => {
         try {
@@ -71,9 +93,10 @@ const Profile = () => {
                 .from("users")
                 .select("full_name, email, profile_picture_url, age, weight, height, goal")
                 .eq("id", userId)
-                .single();
+                .maybeSingle();
 
             if (dbError) {
+                console.error("Database error:", dbError);
                 throw dbError;
             }
 
@@ -228,8 +251,20 @@ const Profile = () => {
                     </View>
                 </View>
 
-                <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>Other</Text>
+                <View style={styles.menuSection}>
+                    <Text style={styles.sectionTitle}>Menu</Text>
+                    {isAdmin && (
+                        <TouchableOpacity
+                            style={styles.menuItem}
+                            onPress={() => router.push('/admin')}
+                        >
+                            <View style={styles.menuItemContent}>
+                                <Ionicons name="settings-outline" size={24} color="#333" />
+                                <Text style={styles.menuItemText}>Admin Dashboard</Text>
+                            </View>
+                            <Ionicons name="chevron-forward" size={24} color="#666" />
+                        </TouchableOpacity>
+                    )}
                     <MenuLink icon="mail-outline" title="Contact Us" onPress={() => navigation.navigate("ContactUs")} />
                     <MenuLink icon="shield-outline" title="Privacy Policy" onPress={() => navigation.navigate("PrivacyPolicy")} />
                     <MenuLink icon="settings-outline" title="Settings" onPress={() => navigation.navigate("Settings")} />
@@ -317,6 +352,11 @@ const styles = StyleSheet.create({
         marginTop: 16,
         paddingVertical: 8,
     },
+    menuSection: {
+        backgroundColor: "#FFFFFF",
+        marginTop: 16,
+        paddingVertical: 8,
+    },
     sectionTitle: {
         fontSize: 16,
         fontWeight: "600",
@@ -334,12 +374,20 @@ const styles = StyleSheet.create({
         flexDirection: "row",
         alignItems: "center",
     },
+    menuItemContent: {
+        flexDirection: "row",
+        alignItems: "center",
+    },
     menuIcon: {
         marginRight: 12,
     },
     menuText: {
         fontSize: 16,
         color: "#333",
+    },
+    menuItemText: {
+        marginLeft: 10,
+        fontSize: 16,
     },
     menuButton: {
         padding: 10,
@@ -360,10 +408,6 @@ const styles = StyleSheet.create({
         shadowRadius: 3.84,
         elevation: 5,
         zIndex: 1000,
-    },
-    menuItemText: {
-        marginLeft: 10,
-        fontSize: 16,
     },
     dropdownMenuItem: {
         flexDirection: 'row',

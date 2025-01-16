@@ -7,12 +7,107 @@ import {
     StyleSheet,
     SafeAreaView,
     Pressable,
+    Alert,
+    ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
+import { supabase } from '@/lib/supabase';
 
 export default function RegisterScreen() {
+    const [firstName, setFirstName] = useState('');
+    const [lastName, setLastName] = useState('');
+    const [email, setEmail] = useState('');
+    const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
     const [acceptedTerms, setAcceptedTerms] = useState(false);
+    const [isLoading, setIsLoading] = useState(false);
+    const router = useRouter();
+
+    const handleRegister = async () => {
+        console.log('Register button pressed');
+
+        // Validate inputs
+        if (!firstName || !lastName || !email || !password) {
+            console.log('Validation failed: missing fields');
+            Alert.alert('Error', 'Please fill in all fields');
+            return;
+        }
+
+        if (!acceptedTerms) {
+            console.log('Validation failed: terms not accepted');
+            Alert.alert('Error', 'Please accept the terms and conditions');
+            return;
+        }
+
+        if (password.length < 6) {
+            console.log('Validation failed: password too short');
+            Alert.alert('Error', 'Password must be at least 6 characters long');
+            return;
+        }
+
+        setIsLoading(true);
+        try {
+            console.log('Attempting to register with Supabase...');
+            // Register the user with Supabase
+            const { data: authData, error: authError } = await supabase.auth.signUp({
+                email,
+                password,
+            });
+
+            if (authError) throw authError;
+
+            if (authData?.user) {
+                console.log('Auth successful, inserting into users table...');
+                // Insert into users table
+                const { error: usersError } = await supabase
+                    .from('users')
+                    .insert([
+                        {
+                            id: authData.user.id,
+                            email: email,
+                            password_hash: '', // This will be handled by Supabase Auth
+                            username: email.split('@')[0], // Generate username from email
+                            full_name: `${firstName} ${lastName}`,
+                            profile_picture_url: null,
+                            is_active: true,
+                            last_login: null,
+                            created_at: new Date().toISOString(),
+                            updated_at: new Date().toISOString(),
+                            language: 'en',
+                            age: null,
+                            weight: null,
+                            height: null,
+                            goal: null
+                        }
+                    ]);
+
+                if (usersError) {
+                    console.error('Error inserting into users table:', usersError);
+                    throw new Error('Failed to create user profile');
+                }
+
+                Alert.alert(
+                    'Success',
+                    'Registration successful! Please check your email to verify your account.',
+                    [
+                        {
+                            text: 'OK',
+                            onPress: () => {
+                                console.log('Navigating to login...');
+                                router.replace('/login');
+                            }
+                        }
+                    ]
+                );
+            }
+        } catch (error: any) {
+            console.log('Registration error:', error);
+            Alert.alert('Error', error.message);
+        } finally {
+            setIsLoading(false);
+        }
+    };
 
     return (
         <SafeAreaView style={styles.container}>
@@ -27,6 +122,9 @@ export default function RegisterScreen() {
                             placeholder="First Name"
                             style={styles.input}
                             placeholderTextColor="#999"
+                            value={firstName}
+                            onChangeText={setFirstName}
+                            editable={!isLoading}
                         />
                     </View>
 
@@ -36,6 +134,9 @@ export default function RegisterScreen() {
                             placeholder="Last Name"
                             style={styles.input}
                             placeholderTextColor="#999"
+                            value={lastName}
+                            onChangeText={setLastName}
+                            editable={!isLoading}
                         />
                     </View>
 
@@ -46,6 +147,10 @@ export default function RegisterScreen() {
                             style={styles.input}
                             keyboardType="email-address"
                             placeholderTextColor="#999"
+                            value={email}
+                            onChangeText={setEmail}
+                            autoCapitalize="none"
+                            editable={!isLoading}
                         />
                     </View>
 
@@ -56,6 +161,9 @@ export default function RegisterScreen() {
                             style={styles.input}
                             secureTextEntry={!showPassword}
                             placeholderTextColor="#999"
+                            value={password}
+                            onChangeText={setPassword}
+                            editable={!isLoading}
                         />
                         <Pressable onPress={() => setShowPassword(!showPassword)}>
                             <Ionicons
@@ -71,6 +179,7 @@ export default function RegisterScreen() {
                     <Pressable
                         style={styles.checkbox}
                         onPress={() => setAcceptedTerms(!acceptedTerms)}
+                        disabled={isLoading}
                     >
                         {acceptedTerms && <Ionicons name="checkmark" size={16} color="#666" />}
                     </Pressable>
@@ -81,24 +190,35 @@ export default function RegisterScreen() {
                     </Text>
                 </View>
 
-                <TouchableOpacity style={styles.registerButton}>
-                    <Text style={styles.registerButtonText}>Register</Text>
+                <TouchableOpacity
+                    style={[styles.registerButton, isLoading && styles.disabledButton]}
+                    onPress={handleRegister}
+                    disabled={isLoading}
+                >
+                    {isLoading ? (
+                        <ActivityIndicator color="#fff" />
+                    ) : (
+                        <Text style={styles.registerButtonText}>Register</Text>
+                    )}
                 </TouchableOpacity>
 
                 <Text style={styles.orText}>Or</Text>
 
                 <View style={styles.socialButtons}>
-                    <TouchableOpacity style={styles.socialButton}>
+                    <TouchableOpacity style={styles.socialButton} disabled={isLoading}>
                         <Ionicons name="logo-google" size={24} color="#666" />
                     </TouchableOpacity>
-                    <TouchableOpacity style={styles.socialButton}>
+                    <TouchableOpacity style={styles.socialButton} disabled={isLoading}>
                         <Ionicons name="logo-facebook" size={24} color="#666" />
                     </TouchableOpacity>
                 </View>
 
                 <View style={styles.loginContainer}>
                     <Text style={styles.loginText}>Already have an account? </Text>
-                    <TouchableOpacity>
+                    <TouchableOpacity
+                        onPress={() => router.replace('/login')}
+                        disabled={isLoading}
+                    >
                         <Text style={styles.loginLink}>Login</Text>
                     </TouchableOpacity>
                 </View>
@@ -176,6 +296,9 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
         marginBottom: 24,
+    },
+    disabledButton: {
+        opacity: 0.7,
     },
     registerButtonText: {
         color: '#fff',
