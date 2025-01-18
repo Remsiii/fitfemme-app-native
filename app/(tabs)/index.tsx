@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -15,52 +15,164 @@ import { LineChart } from 'react-native-chart-kit';
 import * as Haptics from 'expo-haptics';
 import { useSettings } from '../../context/SettingsContext';
 
+// Apple HealthKit
+import AppleHealthKit, {
+  HealthKitPermissions,
+  HealthValue,
+} from 'react-native-health';
+
+
+
 const screenWidth = Dimensions.get('window').width;
 
 const HomeScreen = () => {
   const { hapticEnabled } = useSettings();
 
+  // -------------------------------------
+  // STATES
+  // -------------------------------------
+  const [isPaired, setIsPaired] = useState<boolean>(false);       // Ist die Uhr mit dem iPhone gekoppelt?
+  const [isReachable, setIsReachable] = useState<boolean>(false); // Ist die Watch aktuell erreichbar?
+
+  // Empfangene Herzfrequenz (aus HealthKit)
+  const [heartRate, setHeartRate] = useState<number | null>(null);
+
+  // Zuletzt aktualisiert
+  const [lastUpdate, setLastUpdate] = useState<string | null>(null);
+
+  // -------------------------------------
+  // HAPTICS (Vibration)
+  // -------------------------------------
   const triggerHaptic = async () => {
     if (!hapticEnabled || (Platform.OS !== 'ios' && Platform.OS !== 'android')) return;
-
     try {
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (error) {
-      console.debug('Haptics not available on this platform');
+      console.debug('Haptics nicht verfügbar auf dieser Plattform');
     }
   };
 
+  // -------------------------------------
+  // HealthKit-Setup
+  // -------------------------------------
+  useEffect(() => {
+    // HealthKit-Berechtigungen abfragen
+    const permissions: HealthKitPermissions = {
+      permissions: {
+        read: [AppleHealthKit.Constants.Permissions.HeartRate],
+        write: [],
+      },
+    };
+
+    AppleHealthKit.initHealthKit(permissions, (error) => {
+      if (error) {
+        console.log('[ERROR] HealthKit-Berechtigungen konnten nicht erteilt werden:', error);
+        return;
+      }
+      // Bei Erfolg direkt einmal Herzfrequenz lesen
+      readLatestHeartRate();
+    });
+  }, []);
+
+  // Funktion: neueste Herzfrequenz aus HealthKit holen
+  const readLatestHeartRate = () => {
+    const options = {
+      // Ab welchem Datum sollen wir Daten lesen?
+      // Hier als Beispiel ab Jahresbeginn 2025:
+      startDate: new Date(2025, 0, 1).toISOString(),
+    };
+
+    AppleHealthKit.getHeartRateSamples(
+      options,
+      (callbackError: string, results?: HealthValue[]) => {
+        if (callbackError) {
+          console.error('Fehler beim Abruf der Herzfrequenz:', callbackError);
+          return;
+        }
+
+        if (results && results.length > 0) {
+          // Letztes Element (neuester Wert)
+          const latest = results[results.length - 1];
+          setHeartRate(latest.value);
+          // Zeitstempel aktualisieren
+          setLastUpdate(new Date().toLocaleTimeString());
+        } else {
+          console.log('Keine Herzfrequenzdaten gefunden');
+        }
+      },
+    );
+  };
+
+  // -------------------------------------
+  // USEEFFECT: WATCH-STATUS & MESSAGE-LISTENERS
+  // -------------------------------------
+  useEffect(() => {
+    // Watch-Status direkt beim Start holen
+
+
+    // Hier könnte man noch Listener für empfangene Nachrichten einbauen (onMessage)
+
+    return () => {
+      // removeListener(...) falls du einen Listener gesetzt hast
+    };
+  }, []);
+
+  // -------------------------------------
+  // FUNKTION: HERZFREQUENZ VON WATCH (bzw. HealthKit) ANFORDERN
+  // -------------------------------------
+  const requestHeartRate = () => {
+    if (!isReachable) {
+      console.warn('Apple Watch ist nicht erreichbar oder nicht gekoppelt.');
+      return;
+    }
+    // Wir senden eine Nachricht an die Watch, falls du es brauchst
+    // (z. B. um die Watch zu "triggern", etwas zu tun).
+
+    // **Wichtig**: Den tatsächlichen Wert lesen wir IMMER aus HealthKit
+    // nachdem die Watch (hoffentlich) aktualisiert hat.
+    readLatestHeartRate();
+  };
+
+  // -------------------------------------
+  // DATEN FÜR DIE CHARTS
+  // -------------------------------------
   const heartRateData = {
     labels: ['', '', '', '', '', ''],
-    datasets: [{
-      data: [65, 70, 80, 75, 85, 78],
-      color: (opacity = 1) => `rgba(107, 140, 255, ${opacity})`,
-      strokeWidth: 2
-    }]
+    datasets: [
+      {
+        data: heartRate != null ? [heartRate, 70, 80, 75, 85, 78] : [0, 0, 0, 0, 0, 0],
+        color: (opacity = 1) => `rgba(107, 140, 255, ${opacity})`,
+        strokeWidth: 2,
+      },
+    ],
   };
 
   const workoutProgress = {
     labels: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
-    datasets: [{
-      data: [20, 45, 28, 80, 99, 43, 50],
-    }]
+    datasets: [
+      {
+        data: [20, 45, 28, 80, 99, 43, 50],
+      },
+    ],
   };
 
+  // -------------------------------------
+  // RETURN: UI
+  // -------------------------------------
   return (
     <ScrollView style={styles.container}>
+      {/* HEADER */}
       <View style={styles.header}>
         <View>
           <Text style={styles.welcomeText}>Welcome Back,</Text>
-          <Text style={styles.userName}>Daniel</Text>
+          <Text style={styles.userName}>Danieel</Text>
         </View>
-        <TouchableOpacity
-          style={styles.notificationButton}
-          onPress={triggerHaptic}
-        >
+        <TouchableOpacity style={styles.notificationButton} onPress={triggerHaptic}>
           <Ionicons name="notifications-outline" size={24} color="#000" />
         </TouchableOpacity>
       </View>
 
+      {/* BMI CARD */}
       <LinearGradient
         colors={['#6B8CFF', '#B4C4FF']}
         start={{ x: 0, y: 0 }}
@@ -70,10 +182,7 @@ const HomeScreen = () => {
         <View>
           <Text style={styles.bmiTitle}>BMI (Body Mass Index)</Text>
           <Text style={styles.bmiSubtitle}>You have a normal weight</Text>
-          <TouchableOpacity
-            style={styles.viewMoreButton}
-            onPress={triggerHaptic}
-          >
+          <TouchableOpacity style={styles.viewMoreButton} onPress={triggerHaptic}>
             <Text style={styles.viewMoreText}>View More</Text>
           </TouchableOpacity>
         </View>
@@ -82,53 +191,79 @@ const HomeScreen = () => {
         </View>
       </LinearGradient>
 
+      {/* TODAY TARGET */}
       <View style={styles.targetSection}>
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Today Target</Text>
-          <TouchableOpacity
-            style={styles.checkButton}
-            onPress={triggerHaptic}
-          >
+          <TouchableOpacity style={styles.checkButton} onPress={triggerHaptic}>
             <Text style={styles.checkButtonText}>Check</Text>
           </TouchableOpacity>
         </View>
       </View>
 
+      {/* ACTIVITY STATUS */}
       <View style={styles.activitySection}>
         <Text style={styles.sectionTitle}>Activity Status</Text>
-        <View style={styles.heartRateCard}>
-          <View>
-            <Text style={styles.heartRateTitle}>Heart Rate</Text>
-            <Text style={styles.heartRateValue}>78 BPM</Text>
-          </View>
-          <View style={styles.chartContainer}>
-            <LineChart
-              data={heartRateData}
-              width={screenWidth - 80}
-              height={100}
-              chartConfig={{
-                backgroundGradientFrom: '#F5F7FF',
-                backgroundGradientTo: '#F5F7FF',
-                decimalPlaces: 0,
-                color: (opacity = 1) => `rgba(107, 140, 255, ${opacity})`,
-                style: {
-                  borderRadius: 16,
-                },
-              }}
-              bezier
-              style={styles.chart}
-              withDots={false}
-              withInnerLines={false}
-              withOuterLines={false}
-              withVerticalLabels={false}
-              withHorizontalLabels={false}
-            />
-          </View>
-          <View style={styles.timeIndicator}>
-            <Text style={styles.timeText}>3mins ago</Text>
-          </View>
-        </View>
 
+        {/* Herzfrequenz-CARD */}
+        {heartRate !== null ? (
+          <View style={styles.heartRateCard}>
+            <View>
+              <Text style={styles.heartRateTitle}>Meins</Text>
+              <Text style={styles.heartRateValue}>{heartRate} BPM</Text>
+            </View>
+            <View style={styles.chartContainer}>
+              <LineChart
+                data={heartRateData}
+                width={screenWidth - 80}
+                height={100}
+                chartConfig={{
+                  backgroundGradientFrom: '#F5F7FF',
+                  backgroundGradientTo: '#F5F7FF',
+                  decimalPlaces: 0,
+                  color: (opacity = 1) => `rgba(107, 140, 255, ${opacity})`,
+                  style: {
+                    borderRadius: 16,
+                  },
+                }}
+                bezier
+                style={styles.chart}
+                withDots={false}
+                withInnerLines={false}
+                withOuterLines={false}
+                withVerticalLabels={false}
+                withHorizontalLabels={false}
+              />
+            </View>
+
+            <View style={styles.timeIndicator}>
+              <Text style={styles.timeText}>
+                {lastUpdate ? `Updated at ${lastUpdate}` : 'Just now'}
+              </Text>
+            </View>
+
+            {/* Button für neue Herzfrequenz-Anforderung */}
+            <TouchableOpacity style={styles.checkButton} onPress={requestHeartRate}>
+              <Text style={styles.checkButtonText}>Update Heart Rate</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <View style={styles.heartRateCard}>
+            <Text style={styles.heartRateTitle}>Meins</Text>
+            <Text style={styles.heartRateValue}>–</Text>
+            <Text style={styles.timeText}>No data from Watch (HealthKit) yet</Text>
+            {/* Ist die Watch erreichbar? */}
+            {isPaired && isReachable ? (
+              <TouchableOpacity style={styles.checkButton} onPress={requestHeartRate}>
+                <Text style={styles.checkButtonText}>Request From Watch</Text>
+              </TouchableOpacity>
+            ) : (
+              <Text style={styles.timeText}>Watch not paired or not reachable</Text>
+            )}
+          </View>
+        )}
+
+        {/* WATER INTAKE */}
         <View style={styles.waterIntakeCard}>
           <View style={styles.waterHeader}>
             <Text style={styles.waterTitle}>Water Intake</Text>
@@ -151,6 +286,7 @@ const HomeScreen = () => {
           </View>
         </View>
 
+        {/* CALORIES CARD */}
         <View style={styles.caloriesCard}>
           <Text style={styles.caloriesTitle}>Calories</Text>
           <View style={styles.caloriesContent}>
@@ -160,6 +296,7 @@ const HomeScreen = () => {
         </View>
       </View>
 
+      {/* WORKOUT PROGRESS */}
       <View style={styles.workoutSection}>
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Workout Progress</Text>
@@ -185,6 +322,7 @@ const HomeScreen = () => {
         />
       </View>
 
+      {/* LATEST WORKOUT */}
       <View style={styles.latestWorkoutSection}>
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Latest Workout</Text>
@@ -197,17 +335,17 @@ const HomeScreen = () => {
           {
             title: 'Fullbody Workout',
             duration: '180 Calories Burn | 20minutes',
-            image: require('../../assets/images/google.png')
+            image: require('../../assets/images/google.png'),
           },
           {
             title: 'Lowerbody Workout',
             duration: '200 Calories Burn | 30minutes',
-            image: require('../../assets/images/google.png')
+            image: require('../../assets/images/google.png'),
           },
           {
             title: 'Ab Workout',
             duration: '150 Calories Burn | 15minutes',
-            image: require('../../assets/images/google.png')
+            image: require('../../assets/images/google.png'),
           },
         ].map((workout, index) => (
           <TouchableOpacity
@@ -228,6 +366,9 @@ const HomeScreen = () => {
   );
 };
 
+// -------------------------------------
+// STYLES
+// -------------------------------------
 const styles = StyleSheet.create({
   container: {
     flex: 1,

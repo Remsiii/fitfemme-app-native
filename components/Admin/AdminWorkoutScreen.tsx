@@ -11,10 +11,9 @@ import {
 import { supabase } from '../../lib/supabase';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { TextInput } from 'react-native-gesture-handler';
 
 interface Workout {
-  id: string;
+  id: number;
   name: string;
   type: string;
   difficulty: string;
@@ -22,6 +21,8 @@ interface Workout {
   description: string;
   exercises_count: number;
   calories_burned: number;
+  schedule_time: string | null;
+  icon: string | null;
 }
 
 export default function AdminWorkoutScreen() {
@@ -38,7 +39,7 @@ export default function AdminWorkoutScreen() {
       const { data, error } = await supabase
         .from('workouts')
         .select('*')
-        .order('created_at', { ascending: false });
+        .order('id', { ascending: false });
 
       if (error) throw error;
       setWorkouts(data || []);
@@ -57,7 +58,7 @@ export default function AdminWorkoutScreen() {
     });
   };
 
-  const handleDeleteWorkout = async (workoutId: string) => {
+  const handleDeleteWorkout = async (workoutId: number) => {
     Alert.alert(
       'Delete Workout',
       'Are you sure you want to delete this workout?',
@@ -86,10 +87,6 @@ export default function AdminWorkoutScreen() {
     );
   };
 
-  const handleAddWorkout = () => {
-    router.push('/admin/add-workout');
-  };
-
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
@@ -100,17 +97,6 @@ export default function AdminWorkoutScreen() {
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Manage Workouts</Text>
-        <TouchableOpacity
-          style={styles.addButton}
-          onPress={handleAddWorkout}
-        >
-          <Ionicons name="add-circle-outline" size={24} color="#fff" />
-          <Text style={styles.addButtonText}>Add Workout</Text>
-        </TouchableOpacity>
-      </View>
-
       <ScrollView style={styles.workoutList}>
         {workouts.map((workout) => (
           <View key={workout.id} style={styles.workoutCard}>
@@ -153,30 +139,6 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 16,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-  },
-  addButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#007AFF',
-    padding: 10,
-    borderRadius: 8,
-  },
-  addButtonText: {
-    color: '#fff',
-    marginLeft: 8,
   },
   workoutList: {
     padding: 16,

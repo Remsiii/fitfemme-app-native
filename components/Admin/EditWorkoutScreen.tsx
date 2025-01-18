@@ -14,16 +14,16 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
 interface Exercise {
-  id: string;
+  id: number;
   name: string;
   duration: string;
   reps: string;
   set_number: number;
-  workout_id: string;
+  workout_id: number;
 }
 
 interface Workout {
-  id: string;
+  id: number;
   name: string;
   type: string;
   difficulty: string;
@@ -31,7 +31,8 @@ interface Workout {
   description: string;
   exercises_count: number;
   calories_burned: number;
-  exercises?: Exercise[];
+  schedule_time: string | null;
+  icon: string | null;
 }
 
 export default function EditWorkoutScreen() {
@@ -39,7 +40,7 @@ export default function EditWorkoutScreen() {
   const { workoutId } = useLocalSearchParams();
   const [loading, setLoading] = useState(true);
   const [workout, setWorkout] = useState<Workout>({
-    id: '',
+    id: 0,
     name: '',
     type: '',
     difficulty: '',
@@ -47,6 +48,8 @@ export default function EditWorkoutScreen() {
     description: '',
     exercises_count: 0,
     calories_burned: 0,
+    schedule_time: null,
+    icon: null,
   });
   const [exercises, setExercises] = useState<Exercise[]>([]);
 
@@ -95,6 +98,8 @@ export default function EditWorkoutScreen() {
           duration: workout.duration,
           description: workout.description,
           calories_burned: workout.calories_burned,
+          schedule_time: workout.schedule_time,
+          icon: workout.icon,
         })
         .eq('id', workoutId);
 
@@ -110,17 +115,17 @@ export default function EditWorkoutScreen() {
 
   const handleAddExercise = () => {
     const newExercise: Exercise = {
-      id: Date.now().toString(),
+      id: Date.now(),
       name: '',
       duration: '',
       reps: '',
       set_number: exercises.length + 1,
-      workout_id: workoutId as string,
+      workout_id: Number(workoutId),
     };
     setExercises([...exercises, newExercise]);
   };
 
-  const handleUpdateExercise = async (exerciseId: string, updatedExercise: Partial<Exercise>) => {
+  const handleUpdateExercise = async (exerciseId: number, updatedExercise: Partial<Exercise>) => {
     try {
       const { error } = await supabase
         .from('exercises')
@@ -138,7 +143,7 @@ export default function EditWorkoutScreen() {
     }
   };
 
-  const handleDeleteExercise = async (exerciseId: string) => {
+  const handleDeleteExercise = async (exerciseId: number) => {
     try {
       const { error } = await supabase
         .from('exercises')
@@ -225,6 +230,22 @@ export default function EditWorkoutScreen() {
           onChangeText={(text) => setWorkout({ ...workout, calories_burned: parseInt(text) || 0 })}
           keyboardType="numeric"
           placeholder="Estimated calories burned"
+        />
+
+        <Text style={styles.label}>Icon</Text>
+        <TextInput
+          style={styles.input}
+          value={workout.icon || ''}
+          onChangeText={(text) => setWorkout({ ...workout, icon: text })}
+          placeholder="Icon name (optional)"
+        />
+
+        <Text style={styles.label}>Schedule Time</Text>
+        <TextInput
+          style={styles.input}
+          value={workout.schedule_time || ''}
+          onChangeText={(text) => setWorkout({ ...workout, schedule_time: text })}
+          placeholder="Schedule time (optional)"
         />
 
         <View style={styles.exercisesSection}>

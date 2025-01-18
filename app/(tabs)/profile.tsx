@@ -27,6 +27,7 @@ type RootStackParamList = {
     ContactUs: undefined;
     PrivacyPolicy: undefined;
     Settings: undefined;
+    admin: undefined;
 };
 
 const Profile = () => {
@@ -256,7 +257,7 @@ const Profile = () => {
                     {isAdmin && (
                         <TouchableOpacity
                             style={styles.menuItem}
-                            onPress={() => router.push('/admin')}
+                            onPress={() => router.push('/admin/index')}
                         >
                             <View style={styles.menuItemContent}>
                                 <Ionicons name="settings-outline" size={24} color="#333" />
