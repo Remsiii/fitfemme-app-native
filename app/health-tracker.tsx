@@ -1,323 +1,343 @@
-import React, { useState, useEffect } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  ScrollView,
-  TextInput,
-  Dimensions,
-  Alert,
-} from 'react-native';
-import { useRouter } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
+import React from 'react';
+import { View, Text, ScrollView, StyleSheet, Dimensions, TouchableOpacity, Platform } from 'react-native';
+import { Stack } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
-import { supabase } from '@/lib/supabase';
-import { LineChart } from 'react-native-chart-kit';
+import { Ionicons } from '@expo/vector-icons';
+import Svg, { Circle, Rect } from 'react-native-svg';
 
 const screenWidth = Dimensions.get('window').width;
 
-interface WaterLog {
-  amount: number;
-  timestamp: string;
-}
+// 2025 Modern Color Scheme
+const colors = {
+  background: '#FFFFFF',
+  primary: '#7000FF',
+  secondary: '#00E5FF',
+  accent: '#FF3D71',
+  success: '#00E096',
+  text: '#2E3A59',
+  textLight: '#8F9BB3',
+  card: '#F7F9FC'
+};
 
-export default function HealthTracker() {
-  const router = useRouter();
-  const [dailyGoal, setDailyGoal] = useState<number>(2000);
-  const [waterLogs, setWaterLogs] = useState<WaterLog[]>([]);
-  const [todayTotal, setTodayTotal] = useState<number>(0);
-  const [isEditingGoal, setIsEditingGoal] = useState(false);
-  const [newGoal, setNewGoal] = useState('');
+const todayData = {
+  steps: {
+    current: 6842,
+    goal: 10000,
+    unit: 'Schritte'
+  },
+  activeEnergy: {
+    current: 286,
+    goal: 400,
+    unit: 'kcal'
+  },
+  exerciseTime: {
+    current: 22,
+    goal: 30,
+    unit: 'Min'
+  }
+};
 
-  useEffect(() => {
-    fetchWaterLogs();
-  }, []);
+const weeklyActivity = [
+  { day: 'Mo', steps: 7523, calories: 320 },
+  { day: 'Di', steps: 8234, calories: 345 },
+  { day: 'Mi', steps: 6932, calories: 298 },
+  { day: 'Do', steps: 9123, calories: 387 },
+  { day: 'Fr', steps: 6842, calories: 286 },
+  { day: 'Sa', steps: 0, calories: 0 },
+  { day: 'So', steps: 0, calories: 0 }
+];
 
-  const fetchWaterLogs = async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
-      const today = new Date().toISOString().split('T')[0];
-      const { data, error } = await supabase
-        .from('user_activities')
-        .select('water_intake_ml, created_at')
-        .eq('user_id', user.id)
-        .eq('activity_date', today)
-        .order('created_at', { ascending: true });
-
-      if (error) throw error;
-
-      if (data) {
-        const logs = data.map(log => ({
-          amount: log.water_intake_ml,
-          timestamp: new Date(log.created_at).toLocaleTimeString(),
-        }));
-        setWaterLogs(logs);
-        setTodayTotal(logs.reduce((sum, log) => sum + log.amount, 0));
-      }
-    } catch (error) {
-      console.error('Error fetching water logs:', error);
-      Alert.alert('Error', 'Failed to fetch water logs');
-    }
-  };
-
-  const handleSaveGoal = async () => {
-    const newGoalNum = parseInt(newGoal);
-    if (isNaN(newGoalNum) || newGoalNum < 0) {
-      Alert.alert('Invalid Goal', 'Please enter a valid number');
-      return;
-    }
-
-    setDailyGoal(newGoalNum);
-    setIsEditingGoal(false);
-    setNewGoal('');
-
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
-      // Save the new goal to user preferences or settings table
-      // You might need to create a new table for user preferences
-    } catch (error) {
-      console.error('Error saving goal:', error);
-    }
-  };
-
-  const getProgressColor = (): readonly [string, string] => {
-    const progress = (todayTotal / dailyGoal) * 100;
-    if (progress < 30) return ['#FF9B9B', '#FF6B6B'] as const;
-    if (progress < 70) return ['#FFB86B', '#FF9B6B'] as const;
-    return ['#6BCF91', '#4BA36E'] as const;
-  };
-
-  const chartData = {
-    labels: waterLogs.map(log => log.timestamp),
-    datasets: [
-      {
-        data: waterLogs.map(log => log.amount),
-        color: (opacity = 1) => `rgba(107, 140, 255, ${opacity})`,
-        strokeWidth: 2,
-      },
-    ],
-  };
+const CircularProgress = ({ progress, size, color, strokeWidth = 10, children }) => {
+  const radius = (size - strokeWidth) / 2;
+  const circumference = radius * 2 * Math.PI;
+  const strokeDashoffset = circumference - (progress * circumference);
 
   return (
-    <ScrollView style={styles.container}>
-      {/* Progress Circle */}
-      <View style={styles.progressSection}>
-        <LinearGradient
-          colors={getProgressColor()}
-          style={styles.progressCircle}
-        >
-          <View style={styles.innerCircle}>
-            <Text style={styles.progressText}>{todayTotal}</Text>
-            <Text style={styles.progressSubtext}>ml</Text>
-          </View>
-        </LinearGradient>
-        <View style={styles.goalContainer}>
-          {isEditingGoal ? (
-            <View style={styles.goalEditContainer}>
-              <TextInput
-                style={styles.goalInput}
-                keyboardType="number-pad"
-                value={newGoal}
-                onChangeText={setNewGoal}
-                placeholder="Enter new goal"
-              />
-              <TouchableOpacity
-                style={styles.saveButton}
-                onPress={handleSaveGoal}
-              >
-                <Text style={styles.saveButtonText}>Save</Text>
-              </TouchableOpacity>
-            </View>
-          ) : (
-            <TouchableOpacity
-              style={styles.goalTextContainer}
-              onPress={() => setIsEditingGoal(true)}
+    <View style={{ width: size, height: size }}>
+      <Svg width={size} height={size}>
+        <Circle
+          stroke={color + '20'}
+          fill="none"
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          strokeWidth={strokeWidth}
+        />
+        <Circle
+          stroke={color}
+          fill="none"
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          strokeWidth={strokeWidth}
+          strokeDasharray={circumference}
+          strokeDashoffset={strokeDashoffset}
+          strokeLinecap="round"
+          transform={`rotate(-90 ${size / 2} ${size / 2})`}
+        />
+      </Svg>
+      <View style={[StyleSheet.absoluteFill, { alignItems: 'center', justifyContent: 'center' }]}>
+        {children}
+      </View>
+    </View>
+  );
+};
+
+const MetricCard = ({ icon, title, value, color }) => (
+  <View style={styles.metricCard}>
+    <View style={[styles.metricIcon, { backgroundColor: color + '15' }]}>
+      <Ionicons name={icon} size={24} color={color} />
+    </View>
+    <Text style={styles.metricValue}>{value}</Text>
+    <Text style={styles.metricTitle}>{title}</Text>
+  </View>
+);
+
+export default function HealthTracker() {
+  return (
+    <View style={styles.container}>
+      <Stack.Screen
+        options={{
+          title: 'Fitness',
+          headerStyle: { backgroundColor: colors.background },
+          headerTintColor: colors.text,
+          headerShadowVisible: false,
+        }}
+      />
+      
+      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+        <View style={styles.content}>
+          <Text style={styles.title}>Aktivitäten</Text>
+          
+          {/* Main Progress */}
+          <View style={styles.mainProgress}>
+            <CircularProgress
+              progress={todayData.steps.current / todayData.steps.goal}
+              size={200}
+              color={colors.primary}
+              strokeWidth={15}
             >
-              <Text style={styles.goalText}>Daily Goal: {dailyGoal}ml</Text>
-              <Ionicons name="pencil" size={16} color="#666" />
-            </TouchableOpacity>
-          )}
-        </View>
-      </View>
+              <Text style={styles.progressValue}>{todayData.steps.current}</Text>
+              <Text style={styles.progressLabel}>Schritte</Text>
+            </CircularProgress>
+          </View>
 
-      {/* Today's Logs */}
-      <View style={styles.logsSection}>
-        <Text style={styles.sectionTitle}>Today's Water Intake</Text>
-        <View style={styles.chartContainer}>
-          <LineChart
-            data={chartData}
-            width={screenWidth - 32}
-            height={220}
-            chartConfig={{
-              backgroundColor: '#fff',
-              backgroundGradientFrom: '#fff',
-              backgroundGradientTo: '#fff',
-              decimalPlaces: 0,
-              color: (opacity = 1) => `rgba(107, 140, 255, ${opacity})`,
-              labelColor: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
-              style: {
-                borderRadius: 16,
-              },
-              propsForDots: {
-                r: '4',
-                strokeWidth: '2',
-                stroke: '#6B8CFF',
-              },
-            }}
-            bezier
-            style={styles.chart}
-          />
-        </View>
+          {/* Metrics */}
+          <View style={styles.metrics}>
+            <MetricCard
+              icon="footsteps"
+              title="Schritte"
+              value={`${Math.round((todayData.steps.current / todayData.steps.goal) * 100)}%`}
+              color={colors.primary}
+            />
+            <MetricCard
+              icon="flame"
+              title="Kalorien"
+              value={`${todayData.activeEnergy.current}`}
+              color={colors.accent}
+            />
+            <MetricCard
+              icon="time"
+              title="Training"
+              value={`${todayData.exerciseTime.current}min`}
+              color={colors.success}
+            />
+          </View>
 
-        <View style={styles.logsList}>
-          {waterLogs.map((log, index) => (
-            <View key={index} style={styles.logItem}>
-              <View style={styles.logInfo}>
-                <Ionicons name="water-outline" size={24} color="#6B8CFF" />
-                <View style={styles.logTexts}>
-                  <Text style={styles.logAmount}>{log.amount}ml</Text>
-                  <Text style={styles.logTime}>{log.timestamp}</Text>
+          {/* Weekly Progress */}
+          <View style={styles.weeklyCard}>
+            <Text style={styles.sectionTitle}>Wochenübersicht</Text>
+            <View style={styles.weeklyChart}>
+              {weeklyActivity.map((day, index) => (
+                <View key={index} style={styles.dayColumn}>
+                  <View style={styles.barContainer}>
+                    <LinearGradient
+                      colors={[colors.primary + '40', colors.primary]}
+                      style={[
+                        styles.bar,
+                        { 
+                          height: `${(day.steps / 10000) * 100}%`,
+                          opacity: day.steps > 0 ? 1 : 0.2
+                        }
+                      ]}
+                    />
+                  </View>
+                  <Text style={styles.dayLabel}>{day.day}</Text>
                 </View>
-              </View>
-              <Text style={styles.logProgress}>
-                {((log.amount / dailyGoal) * 100).toFixed(1)}%
-              </Text>
+              ))}
             </View>
-          ))}
+          </View>
+
+          {/* Additional Stats */}
+          <View style={styles.statsGrid}>
+            <View style={styles.statCard}>
+              <CircularProgress
+                progress={0.72}
+                size={100}
+                color={colors.accent}
+                strokeWidth={8}
+              >
+                <Text style={styles.statValue}>72</Text>
+                <Text style={styles.statLabel}>BPM</Text>
+              </CircularProgress>
+              <Text style={styles.statTitle}>Herzfrequenz</Text>
+            </View>
+            <View style={styles.statCard}>
+              <CircularProgress
+                progress={0.65}
+                size={100}
+                color={colors.success}
+                strokeWidth={8}
+              >
+                <Text style={styles.statValue}>7.2</Text>
+                <Text style={styles.statLabel}>Std</Text>
+              </CircularProgress>
+              <Text style={styles.statTitle}>Schlaf</Text>
+            </View>
+          </View>
         </View>
-      </View>
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: colors.background,
   },
-  progressSection: {
+  scrollView: {
+    flex: 1,
+  },
+  content: {
+    padding: 24,
+  },
+  title: {
+    fontSize: 34,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: 32,
+  },
+  mainProgress: {
     alignItems: 'center',
-    padding: 20,
-    backgroundColor: '#fff',
-    borderBottomLeftRadius: 20,
-    borderBottomRightRadius: 20,
-    boxShadow: '0px 2px 3.84px rgba(0, 0, 0, 0.1)',
-    elevation: 5,
+    marginBottom: 40,
   },
-  progressCircle: {
-    width: 200,
-    height: 200,
-    borderRadius: 100,
-    justifyContent: 'center',
-    alignItems: 'center',
+  progressValue: {
+    fontSize: 48,
+    fontWeight: '600',
+    color: colors.primary,
+    marginBottom: 4,
   },
-  innerCircle: {
-    width: 180,
-    height: 180,
-    borderRadius: 90,
-    backgroundColor: '#fff',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  progressText: {
-    fontSize: 36,
-    fontWeight: 'bold',
-    color: '#333',
-  },
-  progressSubtext: {
+  progressLabel: {
     fontSize: 16,
-    color: '#666',
+    color: colors.textLight,
   },
-  goalContainer: {
-    marginTop: 20,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  goalTextContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  goalText: {
-    fontSize: 16,
-    color: '#666',
-  },
-  goalEditContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  goalInput: {
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    padding: 8,
-    width: 120,
-  },
-  saveButton: {
-    backgroundColor: '#6B8CFF',
-    padding: 8,
-    borderRadius: 8,
-  },
-  saveButtonText: {
-    color: '#fff',
-    fontWeight: 'bold',
-  },
-  logsSection: {
-    padding: 16,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 16,
-  },
-  chartContainer: {
-    backgroundColor: '#fff',
-    padding: 16,
-    borderRadius: 16,
-    marginBottom: 16,
-  },
-  chart: {
-    marginVertical: 8,
-    borderRadius: 16,
-  },
-  logsList: {
-    gap: 12,
-  },
-  logItem: {
-    backgroundColor: '#fff',
-    padding: 16,
-    borderRadius: 12,
+  metrics: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    marginBottom: 40,
+  },
+  metricCard: {
+    width: '30%',
+    backgroundColor: colors.card,
+    borderRadius: 16,
+    padding: 16,
     alignItems: 'center',
+    ...Platform.select({
+      ios: {
+        shadowColor: colors.text,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.1,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
   },
-  logInfo: {
-    flexDirection: 'row',
+  metricIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     alignItems: 'center',
-    gap: 12,
+    justifyContent: 'center',
+    marginBottom: 12,
   },
-  logTexts: {
-    gap: 4,
+  metricValue: {
+    fontSize: 24,
+    fontWeight: '600',
+    color: colors.text,
+    marginBottom: 4,
   },
-  logAmount: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#333',
-  },
-  logTime: {
-    fontSize: 12,
-    color: '#666',
-  },
-  logProgress: {
+  metricTitle: {
     fontSize: 14,
-    color: '#6B8CFF',
-    fontWeight: 'bold',
+    color: colors.textLight,
+  },
+  weeklyCard: {
+    backgroundColor: colors.card,
+    borderRadius: 24,
+    padding: 24,
+    marginBottom: 32,
+  },
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: colors.text,
+    marginBottom: 24,
+  },
+  weeklyChart: {
+    flexDirection: 'row',
+    height: 200,
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+  },
+  dayColumn: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  barContainer: {
+    width: 8,
+    height: '85%',
+    backgroundColor: colors.primary + '10',
+    borderRadius: 4,
+    overflow: 'hidden',
+    marginBottom: 8,
+  },
+  bar: {
+    position: 'absolute',
+    bottom: 0,
+    width: '100%',
+    borderRadius: 4,
+  },
+  dayLabel: {
+    fontSize: 12,
+    color: colors.textLight,
+  },
+  statsGrid: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  statCard: {
+    width: '47%',
+    backgroundColor: colors.card,
+    borderRadius: 24,
+    padding: 24,
+    alignItems: 'center',
+  },
+  statValue: {
+    fontSize: 24,
+    fontWeight: '600',
+    color: colors.text,
+    marginBottom: 2,
+  },
+  statLabel: {
+    fontSize: 12,
+    color: colors.textLight,
+  },
+  statTitle: {
+    fontSize: 16,
+    color: colors.text,
+    marginTop: 16,
+    fontWeight: '500',
   },
 });

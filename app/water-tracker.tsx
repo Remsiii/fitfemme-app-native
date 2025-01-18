@@ -8,6 +8,9 @@ import {
   TextInput,
   Dimensions,
   Alert,
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -15,6 +18,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { supabase } from '@/lib/supabase';
 import { LineChart } from 'react-native-chart-kit';
 import { Stack } from 'expo-router';
+import Slider from '@react-native-community/slider';
 
 const screenWidth = Dimensions.get('window').width;
 
@@ -30,11 +34,26 @@ export default function WaterTracker() {
   const [todayTotal, setTodayTotal] = useState<number>(0);
   const [isEditingGoal, setIsEditingGoal] = useState(false);
   const [newGoal, setNewGoal] = useState('');
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isAddingWater, setIsAddingWater] = useState(false);
+  const [customAmount, setCustomAmount] = useState('');
+  const [isAddingCustom, setIsAddingCustom] = useState(false);
 
   useEffect(() => {
-    fetchWaterLogs();
-    loadDailyGoal();
+    loadData();
   }, []);
+
+  const loadData = async () => {
+    setIsLoading(true);
+    try {
+      await Promise.all([fetchWaterLogs(), loadDailyGoal()]);
+    } catch (error) {
+      console.error('Error loading data:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const fetchWaterLogs = async () => {
     try {
@@ -54,7 +73,10 @@ export default function WaterTracker() {
       if (data) {
         const logs = data.map(log => ({
           amount: log.water_intake_ml,
-          timestamp: new Date(log.created_at).toLocaleTimeString(),
+          timestamp: new Date(log.created_at).toLocaleTimeString([], { 
+            hour: '2-digit', 
+            minute: '2-digit' 
+          }),
         }));
         setWaterLogs(logs);
         setTodayTotal(logs.reduce((sum, log) => sum + log.amount, 0));
@@ -80,6 +102,7 @@ export default function WaterTracker() {
 
       if (data && data.daily_water_goal_ml) {
         setDailyGoal(data.daily_water_goal_ml);
+        setNewGoal(data.daily_water_goal_ml.toString());
       }
     } catch (error) {
       console.error('Error loading daily goal:', error);
@@ -93,6 +116,7 @@ export default function WaterTracker() {
       return;
     }
 
+    setIsSaving(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
@@ -106,11 +130,12 @@ export default function WaterTracker() {
 
       setDailyGoal(newGoalNum);
       setIsEditingGoal(false);
-      setNewGoal('');
       Alert.alert('Success', 'Daily water goal updated successfully');
     } catch (error) {
       console.error('Error saving goal:', error);
       Alert.alert('Error', 'Failed to save daily water goal');
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -121,109 +146,233 @@ export default function WaterTracker() {
     return ['#6BCF91', '#4BA36E'] as const;
   };
 
-  const chartData = {
-    labels: waterLogs.map(log => log.timestamp),
-    datasets: [
-      {
-        data: waterLogs.map(log => log.amount),
-        color: (opacity = 1) => `rgba(107, 140, 255, ${opacity})`,
-        strokeWidth: 2,
-      },
-    ],
+  const chartConfig = {
+    backgroundColor: '#ffffff',
+    backgroundGradientFrom: '#ffffff',
+    backgroundGradientTo: '#ffffff',
+    decimalPlaces: 0,
+    color: (opacity = 1) => `rgba(107, 140, 255, ${opacity})`,
+    labelColor: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
+    style: {
+      borderRadius: 16,
+    },
+    propsForDots: {
+      r: '6',
+      strokeWidth: '2',
+      stroke: '#6B8CFF',
+    },
+    propsForBackgroundLines: {
+      strokeDasharray: '',
+    },
   };
 
+  const addWaterIntake = async (amount: number) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const today = new Date().toISOString().split('T')[0];
+      const { error } = await supabase
+        .from('user_activities')
+        .insert({
+          user_id: user.id,
+          water_intake_ml: amount,
+          activity_date: today,
+        });
+
+      if (error) throw error;
+
+      await fetchWaterLogs();
+      Alert.alert('Success', `Added ${amount}ml of water!`);
+    } catch (error) {
+      console.error('Error adding water intake:', error);
+      Alert.alert('Error', 'Failed to add water intake');
+    }
+  };
+
+  const handleCustomAmountSubmit = () => {
+    const amount = parseInt(customAmount);
+    if (isNaN(amount) || amount <= 0) {
+      Alert.alert('Invalid Amount', 'Please enter a valid number');
+      return;
+    }
+    addWaterIntake(amount);
+    setCustomAmount('');
+    setIsAddingCustom(false);
+  };
+
+  const QuickAddButton = ({ amount }: { amount: number }) => (
+    <TouchableOpacity
+      style={styles.quickAddButton}
+      onPress={() => addWaterIntake(amount)}
+    >
+      <View style={styles.quickAddContent}>
+        <Ionicons name="water-outline" size={24} color="#fff" />
+        <Text style={styles.quickAddText}>{amount}ml</Text>
+      </View>
+    </TouchableOpacity>
+  );
+
+  if (isLoading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#6B8CFF" />
+        <Text style={styles.loadingText}>Loading water tracker...</Text>
+      </View>
+    );
+  }
+
   return (
-    <>
-      <Stack.Screen options={{ title: 'Water Tracker' }} />
-      <ScrollView style={styles.container}>
-        {/* Progress Circle */}
-        <View style={styles.progressSection}>
+    <KeyboardAvoidingView 
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      style={styles.container}
+    >
+      <Stack.Screen
+        options={{
+          title: 'Water Tracker',
+          headerStyle: { backgroundColor: '#f5f5f5' },
+          headerShadowVisible: false,
+        }}
+      />
+      <ScrollView style={styles.scrollView}>
+        <View style={styles.content}>
           <LinearGradient
             colors={getProgressColor()}
-            style={styles.progressCircle}
+            style={styles.progressCard}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
           >
-            <View style={styles.innerCircle}>
-              <Text style={styles.progressText}>{todayTotal}</Text>
-              <Text style={styles.progressSubtext}>ml</Text>
+            <Text style={styles.progressTitle}>Today's Progress</Text>
+            <Text style={styles.progressText}>
+              {todayTotal}ml / {dailyGoal}ml
+            </Text>
+            <View style={styles.progressBar}>
+              <View
+                style={[
+                  styles.progressFill,
+                  { width: `${Math.min((todayTotal / dailyGoal) * 100, 100)}%` },
+                ]}
+              />
             </View>
           </LinearGradient>
-          <View style={styles.goalContainer}>
+
+          <View style={styles.goalSection}>
+            <Text style={styles.sectionTitle}>Daily Goal</Text>
             {isEditingGoal ? (
               <View style={styles.goalEditContainer}>
-                <TextInput
-                  style={styles.goalInput}
-                  keyboardType="number-pad"
-                  value={newGoal}
-                  onChangeText={setNewGoal}
-                  placeholder="Enter new goal"
+                <Slider
+                  style={styles.slider}
+                  minimumValue={500}
+                  maximumValue={5000}
+                  step={100}
+                  value={parseInt(newGoal) || dailyGoal}
+                  onValueChange={value => setNewGoal(value.toString())}
+                  minimumTrackTintColor="#6B8CFF"
+                  maximumTrackTintColor="#d3d3d3"
+                  thumbTintColor="#6B8CFF"
                 />
-                <TouchableOpacity
-                  style={styles.saveButton}
-                  onPress={handleSaveGoal}
-                >
-                  <Text style={styles.saveButtonText}>Save</Text>
-                </TouchableOpacity>
+                <Text style={styles.sliderValue}>{newGoal}ml</Text>
+                <View style={styles.goalButtonsContainer}>
+                  <TouchableOpacity
+                    style={[styles.button, styles.cancelButton]}
+                    onPress={() => setIsEditingGoal(false)}
+                    disabled={isSaving}
+                  >
+                    <Text style={styles.buttonText}>Cancel</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.button, styles.saveButton]}
+                    onPress={handleSaveGoal}
+                    disabled={isSaving}
+                  >
+                    {isSaving ? (
+                      <ActivityIndicator size="small" color="#ffffff" />
+                    ) : (
+                      <Text style={styles.buttonText}>Save</Text>
+                    )}
+                  </TouchableOpacity>
+                </View>
               </View>
             ) : (
               <TouchableOpacity
-                style={styles.goalTextContainer}
+                style={styles.goalDisplay}
                 onPress={() => setIsEditingGoal(true)}
               >
-                <Text style={styles.goalText}>Daily Goal: {dailyGoal}ml</Text>
-                <Ionicons name="pencil" size={16} color="#666" />
+                <Text style={styles.goalText}>{dailyGoal}ml</Text>
+                <Ionicons name="pencil" size={20} color="#6B8CFF" />
               </TouchableOpacity>
             )}
           </View>
-        </View>
 
-        {/* Today's Logs */}
-        <View style={styles.logsSection}>
-          <Text style={styles.sectionTitle}>Today's Water Intake</Text>
-          <View style={styles.chartContainer}>
-            <LineChart
-              data={chartData}
-              width={screenWidth - 32}
-              height={220}
-              chartConfig={{
-                backgroundColor: '#fff',
-                backgroundGradientFrom: '#fff',
-                backgroundGradientTo: '#fff',
-                decimalPlaces: 0,
-                color: (opacity = 1) => `rgba(107, 140, 255, ${opacity})`,
-                labelColor: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
-                style: {
-                  borderRadius: 16,
-                },
-                propsForDots: {
-                  r: '4',
-                  strokeWidth: '2',
-                  stroke: '#6B8CFF',
-                },
-              }}
-              bezier
-              style={styles.chart}
-            />
-          </View>
+          {waterLogs.length > 0 && (
+            <View style={styles.chartContainer}>
+              <Text style={styles.sectionTitle}>Today's Water Intake</Text>
+              <LineChart
+                data={{
+                  labels: waterLogs.map(log => log.timestamp),
+                  datasets: [{
+                    data: waterLogs.map(log => log.amount)
+                  }]
+                }}
+                width={screenWidth - 40}
+                height={220}
+                chartConfig={chartConfig}
+                bezier
+                style={styles.chart}
+              />
+            </View>
+          )}
 
-          <View style={styles.logsList}>
-            {waterLogs.map((log, index) => (
-              <View key={index} style={styles.logItem}>
-                <View style={styles.logInfo}>
-                  <Ionicons name="water-outline" size={24} color="#6B8CFF" />
-                  <View style={styles.logTexts}>
-                    <Text style={styles.logAmount}>{log.amount}ml</Text>
-                    <Text style={styles.logTime}>{log.timestamp}</Text>
-                  </View>
+          <View style={styles.addWaterSection}>
+            <Text style={styles.sectionTitle}>Add Water</Text>
+            <View style={styles.quickAddGrid}>
+              <QuickAddButton amount={200} />
+              <QuickAddButton amount={300} />
+              <QuickAddButton amount={500} />
+            </View>
+            
+            {isAddingCustom ? (
+              <View style={styles.customAmountContainer}>
+                <TextInput
+                  style={styles.customAmountInput}
+                  keyboardType="number-pad"
+                  value={customAmount}
+                  onChangeText={setCustomAmount}
+                  placeholder="Enter amount in ml"
+                  placeholderTextColor="#999"
+                />
+                <View style={styles.customAmountButtons}>
+                  <TouchableOpacity
+                    style={[styles.button, styles.cancelButton]}
+                    onPress={() => {
+                      setIsAddingCustom(false);
+                      setCustomAmount('');
+                    }}
+                  >
+                    <Text style={[styles.buttonText, { color: '#666' }]}>Cancel</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.button, styles.saveButton]}
+                    onPress={handleCustomAmountSubmit}
+                  >
+                    <Text style={styles.buttonText}>Add</Text>
+                  </TouchableOpacity>
                 </View>
-                <Text style={styles.logProgress}>
-                  {((log.amount / dailyGoal) * 100).toFixed(1)}%
-                </Text>
               </View>
-            ))}
+            ) : (
+              <TouchableOpacity
+                style={styles.customAddButton}
+                onPress={() => setIsAddingCustom(true)}
+              >
+                <Ionicons name="add-circle-outline" size={24} color="#6B8CFF" />
+                <Text style={styles.customAddText}>Custom Amount</Text>
+              </TouchableOpacity>
+            )}
           </View>
+
         </View>
       </ScrollView>
-    </>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -232,124 +381,199 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#f5f5f5',
   },
-  progressSection: {
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: '#f5f5f5',
+  },
+  loadingText: {
+    marginTop: 10,
+    fontSize: 16,
+    color: '#666',
+  },
+  scrollView: {
+    flex: 1,
+  },
+  content: {
     padding: 20,
-    backgroundColor: '#fff',
-    borderBottomLeftRadius: 20,
-    borderBottomRightRadius: 20,
-    boxShadow: '0px 2px 3.84px rgba(0, 0, 0, 0.1)',
-    elevation: 5,
   },
-  progressCircle: {
-    width: 200,
-    height: 200,
-    borderRadius: 100,
-    justifyContent: 'center',
-    alignItems: 'center',
+  progressCard: {
+    padding: 20,
+    borderRadius: 15,
+    marginBottom: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
-  innerCircle: {
-    width: 180,
-    height: 180,
-    borderRadius: 90,
-    backgroundColor: '#fff',
-    justifyContent: 'center',
-    alignItems: 'center',
+  progressTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#fff',
+    marginBottom: 10,
   },
   progressText: {
-    fontSize: 36,
+    fontSize: 24,
     fontWeight: 'bold',
-    color: '#333',
-  },
-  progressSubtext: {
-    fontSize: 16,
-    color: '#666',
-  },
-  goalContainer: {
-    marginTop: 20,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  goalTextContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  goalText: {
-    fontSize: 16,
-    color: '#666',
-  },
-  goalEditContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  goalInput: {
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    padding: 8,
-    width: 120,
-  },
-  saveButton: {
-    backgroundColor: '#6B8CFF',
-    padding: 8,
-    borderRadius: 8,
-  },
-  saveButtonText: {
     color: '#fff',
-    fontWeight: 'bold',
+    marginBottom: 15,
   },
-  logsSection: {
-    padding: 16,
+  progressBar: {
+    height: 10,
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+    borderRadius: 5,
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: '100%',
+    backgroundColor: '#fff',
+    borderRadius: 5,
+  },
+  goalSection: {
+    backgroundColor: '#fff',
+    padding: 20,
+    borderRadius: 15,
+    marginBottom: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   sectionTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
+    fontWeight: '600',
     color: '#333',
-    marginBottom: 16,
+    marginBottom: 15,
+  },
+  goalEditContainer: {
+    alignItems: 'center',
+  },
+  slider: {
+    width: '100%',
+    height: 40,
+  },
+  sliderValue: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: '#6B8CFF',
+    marginTop: 10,
+  },
+  goalButtonsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: '100%',
+    marginTop: 20,
+  },
+  button: {
+    padding: 12,
+    borderRadius: 10,
+    width: '48%',
+    alignItems: 'center',
+  },
+  saveButton: {
+    backgroundColor: '#6B8CFF',
+  },
+  cancelButton: {
+    backgroundColor: '#f5f5f5',
+  },
+  buttonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  goalDisplay: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 10,
+  },
+  goalText: {
+    fontSize: 24,
+    fontWeight: '600',
+    color: '#333',
   },
   chartContainer: {
     backgroundColor: '#fff',
-    padding: 16,
-    borderRadius: 16,
-    marginBottom: 16,
+    padding: 20,
+    borderRadius: 15,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   chart: {
     marginVertical: 8,
-    borderRadius: 16,
+    borderRadius: 15,
   },
-  logsList: {
-    gap: 12,
-  },
-  logItem: {
+  addWaterSection: {
     backgroundColor: '#fff',
-    padding: 16,
-    borderRadius: 12,
+    padding: 20,
+    borderRadius: 15,
+    marginBottom: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  quickAddGrid: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    marginBottom: 15,
   },
-  logInfo: {
+  quickAddButton: {
+    backgroundColor: '#6B8CFF',
+    borderRadius: 12,
+    padding: 15,
+    width: '30%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  quickAddContent: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  quickAddText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+    marginTop: 5,
+  },
+  customAddButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    justifyContent: 'center',
+    padding: 15,
+    backgroundColor: '#f5f5f5',
+    borderRadius: 12,
+    gap: 8,
   },
-  logTexts: {
-    gap: 4,
-  },
-  logAmount: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#333',
-  },
-  logTime: {
-    fontSize: 12,
-    color: '#666',
-  },
-  logProgress: {
-    fontSize: 14,
+  customAddText: {
     color: '#6B8CFF',
-    fontWeight: 'bold',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  customAmountContainer: {
+    marginTop: 10,
+  },
+  customAmountInput: {
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 12,
+    padding: 15,
+    fontSize: 16,
+    marginBottom: 10,
+  },
+  customAmountButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 10,
   },
 });

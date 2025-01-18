@@ -1,641 +1,818 @@
-// import { useState, useEffect } from "react";
-// import { useNavigate, useParams } from "react-router-dom";
-import { router } from 'expo-router';
-// import { Button } from "@/components/ui/button";
-// import { Input } from "@/components/ui/input";
-// import { Card, CardContent } from "@/components/ui/card";
-// import { Loader2Icon } from "lucide-react";
-// import { supabaseAdmin } from "@/lib/supabase";
-// import {
-//     DndContext,
-//     closestCenter,
-//     KeyboardSensor,
-//     PointerSensor,
-//     useSensor,
-//     useSensors,
-//     DragEndEvent
-// } from '@dnd-kit/core';
-// import {
-//     arrayMove,
-//     SortableContext,
-//     sortableKeyboardCoordinates,
-//     verticalListSortingStrategy,
-// } from '@dnd-kit/sortable';
-// import { SortableExerciseItem } from './SortableExerciseItem';
-
-// interface Exercise {
-//     id: string;
-//     name: string;
-//     duration: string;
-//     reps: string;
-//     video_url?: string;
-//     image_url?: string;
-//     set_number: number;
-//     workout_id: string;
-// }
-
-// interface Workout {
-//     id: string;
-//     name: string;
-//     type: string;
-//     difficulty: string;
-//     duration: number;
-//     description: string;
-//     exercises_count: number;
-//     calories_burned: number;
-//     schedule_time: string;
-//     exercises?: Exercise[];
-//     icon?: string;
-// }
-
-// export default function EditWorkout() {
-//     const { workoutId } = useParams();
-//     const [isLoading, setIsLoading] = useState(true);
-//     const [isSubmitting, setIsSubmitting] = useState(false);
-//     const [uploadingImage, setUploadingImage] = useState(false);
-//     const [workout, setWorkout] = useState<Workout | null>(null);
-//     const [exercises, setExercises] = useState<Exercise[]>([]);
-//     const [newExercise, setNewExercise] = useState({
-//         name: "",
-//         duration: "",
-//         reps: "",
-//         video_url: "",
-//         image_url: "",
-//         set_number: 1,
-//     });
-
-//     const [newExerciseFiles, setNewExerciseFiles] = useState<{
-//         image?: File;
-//         video?: File;
-//     }>({});
-
-//     const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
-
-//     useEffect(() => {
-//         fetchWorkout();
-//     }, [workoutId]);
-
-//     const fetchWorkout = async () => {
-//         try {
-//             setIsLoading(true);
-//             const { data: workoutData, error: workoutError } = await supabaseAdmin
-//                 .from('workouts')
-//                 .select('*')
-//                 .eq('id', workoutId)
-//                 .single();
-
-//             if (workoutError) throw workoutError;
-//             setWorkout(workoutData);
-
-//             const { data: exerciseData, error: exerciseError } = await supabaseAdmin
-//                 .from('exercises')
-//                 .select('*')
-//                 .eq('workout_id', workoutId)
-//                 .order('set_number', { ascending: true });
-
-//             if (exerciseError) throw exerciseError;
-//             setExercises(exerciseData || []);
-//         } catch (error) {
-//             console.error('Error fetching workout:', error);
-//         } finally {
-//             setIsLoading(false);
-//         }
-//     };
-
-//     const showToast = (message: string, type: 'success' | 'error') => {
-//         setToast({ message, type });
-//         setTimeout(() => setToast(null), 3000);
-//     };
-
-//     const handleUpdateWorkout = async (updatedData: Partial<Workout>) => {
-//         try {
-//             const { error } = await supabaseAdmin
-//                 .from('workouts')
-//                 .update(updatedData)
-//                 .eq('id', workoutId);
-
-//             if (error) throw error;
-
-//             setWorkout(prev => prev ? { ...prev, ...updatedData } : null);
-//         } catch (error) {
-//             console.error('Error updating workout:', error);
-//         }
-//     };
-
-//     const handleAddExercise = async (e: React.FormEvent) => {
-//         e.preventDefault();
-//         if (!workout) {
-//             showToast("No workout found", "error");
-//             return;
-//         }
-
-//         try {
-//             setIsSubmitting(true);
-//             // Create default URLs for image and video
-//             const defaultImageUrl = 'https://placehold.co/400x300?text=No+Image';
-//             const defaultVideoUrl = 'https://placehold.co/400x300?text=No+Video';
-            
-//             // Create the exercise first with default URLs
-//             const { data: exerciseData, error: exerciseError } = await supabaseAdmin
-//                 .from('exercises')
-//                 .insert({
-//                     workout_id: workout.id,
-//                     name: newExercise.name,
-//                     duration: newExercise.duration,
-//                     reps: newExercise.reps,
-//                     set_number: exercises.length + 1,
-//                     image_url: defaultImageUrl,
-//                     video_url: defaultVideoUrl
-//                 })
-//                 .select()
-//                 .single();
-
-//             if (exerciseError) {
-//                 showToast("Error creating exercise", "error");
-//                 return;
-//             }
-
-//             if (!exerciseData) {
-//                 showToast("No exercise data returned", "error");
-//                 return;
-//             }
-
-//             // Update local state immediately
-//             setExercises(prev => [...prev, exerciseData]);
-
-//             // Handle file uploads
-//             if (newExerciseFiles.image || newExerciseFiles.video) {
-//                 let imageUrl = defaultImageUrl;
-//                 let videoUrl = defaultVideoUrl;
-
-//                 if (newExerciseFiles.image) {
-//                     const fileExt = newExerciseFiles.image.name.split('.').pop();
-//                     const fileName = `image-${exerciseData.id}.${fileExt}`;
-//                     const filePath = `exercises/${fileName}`;
-
-//                     const { error: uploadError } = await supabaseAdmin.storage
-//                         .from('workout-media')
-//                         .upload(filePath, newExerciseFiles.image);
-
-//                     if (!uploadError) {
-//                         const { data: { publicUrl } } = supabaseAdmin.storage
-//                             .from('workout-media')
-//                             .getPublicUrl(filePath);
-//                         imageUrl = publicUrl;
-//                     }
-//                 }
-
-//                 if (newExerciseFiles.video) {
-//                     const fileExt = newExerciseFiles.video.name.split('.').pop();
-//                     const fileName = `video-${exerciseData.id}.${fileExt}`;
-//                     const filePath = `exercises/${fileName}`;
-
-//                     const { error: uploadError } = await supabaseAdmin.storage
-//                         .from('workout-media')
-//                         .upload(filePath, newExerciseFiles.video);
-
-//                     if (!uploadError) {
-//                         const { data: { publicUrl } } = supabaseAdmin.storage
-//                             .from('workout-media')
-//                             .getPublicUrl(filePath);
-//                         videoUrl = publicUrl;
-//                     }
-//                 }
-
-//                 // Update the exercise with the final URLs
-//                 const { data: updatedExercise, error: updateError } = await supabaseAdmin
-//                     .from('exercises')
-//                     .update({
-//                         image_url: imageUrl,
-//                         video_url: videoUrl
-//                     })
-//                     .eq('id', exerciseData.id)
-//                     .select()
-//                     .single();
-
-//                 if (!updateError && updatedExercise) {
-//                     // Update the exercise in local state
-//                     setExercises(prev => prev.map(ex => 
-//                         ex.id === updatedExercise.id ? updatedExercise : ex
-//                     ));
-//                 }
-//             }
-
-//             // Reset form
-//             setNewExercise({
-//                 name: "",
-//                 duration: "",
-//                 reps: "",
-//                 video_url: "",
-//                 image_url: "",
-//                 set_number: 1,
-//             });
-//             setNewExerciseFiles({});
-            
-//             showToast("Exercise added successfully!", "success");
-//         } catch (error) {
-//             console.error('Error in handleAddExercise:', error);
-//             showToast("Error adding exercise", "error");
-//         } finally {
-//             setIsSubmitting(false); // Make sure this always runs
-//         }
-//     };
-
-//     const handleUpdateExercise = async (exercise: Exercise) => {
-//         try {
-//             const { error } = await supabaseAdmin
-//                 .from('exercises')
-//                 .update(exercise)
-//                 .eq('id', exercise.id);
-
-//             if (error) throw error;
-
-//             await fetchWorkout();
-//         } catch (error) {
-//             console.error('Error updating exercise:', error);
-//         }
-//     };
-
-//     const handleDeleteExercise = async (exerciseId: string) => {
-//         try {
-//             // Optimistically remove from UI
-//             setExercises(prev => prev.filter(ex => ex.id !== exerciseId));
-
-//             const { error } = await supabaseAdmin
-//                 .from('exercises')
-//                 .delete()
-//                 .eq('id', exerciseId);
-
-//             if (error) {
-//                 // If error, revert the change
-//                 await fetchWorkout();
-//                 showToast("Error deleting exercise", "error");
-//                 return;
-//             }
-
-//             // Update set numbers for remaining exercises
-//             const updatedExercises = exercises
-//                 .filter(ex => ex.id !== exerciseId)
-//                 .map((ex, idx) => ({ ...ex, set_number: idx + 1 }));
-
-//             // Update all set numbers in database
-//             await Promise.all(
-//                 updatedExercises.map(ex =>
-//                     supabaseAdmin
-//                         .from('exercises')
-//                         .update({ set_number: ex.set_number })
-//                         .eq('id', ex.id)
-//                 )
-//             );
-
-//             setExercises(updatedExercises);
-//             showToast("Exercise deleted successfully!", "success");
-//         } catch (error) {
-//             console.error('Error deleting exercise:', error);
-//             showToast("Error deleting exercise", "error");
-//             await fetchWorkout(); // Refresh to ensure correct state
-//         }
-//     };
-
-//     const handleFileUpload = async (file: File, exerciseId: string, type: 'video' | 'image') => {
-//         try {
-//             const fileExt = file.name.split('.').pop();
-//             const fileName = `${type}-${exerciseId}.${fileExt}`;
-//             const filePath = `exercises/${fileName}`;
-
-//             const { error: uploadError } = await supabaseAdmin.storage
-//                 .from('workout-media')
-//                 .upload(filePath, file);
-
-//             if (uploadError) throw uploadError;
-
-//             const { data: { publicUrl } } = supabaseAdmin.storage
-//                 .from('workout-media')
-//                 .getPublicUrl(filePath);
-
-//             const updateData = type === 'video' 
-//                 ? { video_url: publicUrl }
-//                 : { image_url: publicUrl };
-
-//             await handleUpdateExercise({
-//                 ...(workout?.exercises?.find(e => e.id === exerciseId) as Exercise),
-//                 ...updateData
-//             });
-//         } catch (error) {
-//             console.error(`Error uploading ${type}:`, error);
-//         }
-//     };
-
-//     const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-//         try {
-//             const file = event.target.files?.[0];
-//             if (!file || !workout) return;
-
-//             setUploadingImage(true);
-
-//             // Create a unique file name
-//             const fileExt = file.name.split('.').pop();
-//             const fileName = `${Math.random().toString(36).substring(2)}.${fileExt}`;
-//             const filePath = `${fileName}`; // Simplified path
-
-//             // Upload the file to Supabase storage
-//             const { error: uploadError } = await supabaseAdmin.storage
-//                 .from('workout-images')  // Using the new bucket name
-//                 .upload(filePath, file);
-
-//             if (uploadError) {
-//                 console.error('Upload error:', uploadError);
-//                 throw uploadError;
-//             }
-
-//             // Get the public URL
-//             const { data: { publicUrl } } = supabaseAdmin.storage
-//                 .from('workout-images')  // Using the new bucket name
-//                 .getPublicUrl(filePath);
-
-//             // Update the workout with the new icon
-//             const { error: updateError } = await supabaseAdmin
-//                 .from('workouts')
-//                 .update({ icon: publicUrl })
-//                 .eq('id', workout.id);
-
-//             if (updateError) {
-//                 throw updateError;
-//             }
-
-//             // Update local state
-//             setWorkout(prev => prev ? { ...prev, icon: publicUrl } : null);
-//             setToast({ message: 'Workout icon updated successfully', type: 'success' });
-
-//         } catch (error) {
-//             console.error('Error uploading image:', error);
-//             setToast({ message: 'Error uploading image. Please try again.', type: 'error' });
-//         } finally {
-//             setUploadingImage(false);
-//         }
-//     };
-
-//     const sensors = useSensors(
-//         useSensor(PointerSensor),
-//         useSensor(KeyboardSensor, {
-//             coordinateGetter: sortableKeyboardCoordinates,
-//         })
-//     );
-
-//     const handleDragEnd = async (event: DragEndEvent) => {
-//         const { active, over } = event;
-        
-//         if (!over || active.id === over.id) {
-//             return;
-//         }
-
-//         setExercises((exercises) => {
-//             const oldIndex = exercises.findIndex((ex) => ex.id === active.id);
-//             const newIndex = exercises.findIndex((ex) => ex.id === over.id);
-
-//             const newExercises = arrayMove(exercises, oldIndex, newIndex);
-            
-//             // Update set numbers in database
-//             Promise.all(
-//                 newExercises.map((exercise, index) =>
-//                     supabaseAdmin
-//                         .from('exercises')
-//                         .update({ set_number: index + 1 })
-//                         .eq('id', exercise.id)
-//                 )
-//             ).catch((error) => {
-//                 console.error('Error updating exercise order:', error);
-//                 showToast("Error updating exercise order", "error");
-//                 // Refresh to ensure correct state
-//                 fetchWorkout();
-//             });
-
-//             return newExercises;
-//         });
-//     };
-
-//     const handleNavigate = () => {
-//         router.push('/admin');
-//     };
-
-//     if (isLoading) {
-//         return (
-//             <div className="flex items-center justify-center min-h-screen">
-//                 <Loader2Icon className="w-6 h-6 animate-spin" />
-//             </div>
-//         );
-//     }
-
-//     if (!workout) {
-//         return <div>Workout not found</div>;
-//     }
-
-//     return (
-//         <div className="container mx-auto px-4 py-8">
-//             {toast && (
-//                 <div className={`fixed top-4 right-4 p-4 rounded-md shadow-lg ${
-//                     toast.type === 'success' ? 'bg-green-500' : 'bg-red-500'
-//                 } text-white`}>
-//                     {toast.message}
-//                 </div>
-//             )}
-
-//             <div className="mb-8">
-//                 <Button
-//                     onClick={handleNavigate}
-//                     variant="outline"
-//                     className="mb-4"
-//                 >
-//                     ← Back to Admin
-//                 </Button>
-//                 <div className="flex items-start justify-between">
-//                     <div>
-//                         <h1 className="text-2xl font-bold mb-2">Edit Workout</h1>
-//                         <p className="text-gray-600">Update workout details and exercises</p>
-//                     </div>
-//                     <div className="flex items-center space-x-4">
-//                         {workout.icon && (
-//                             <div className="w-16 h-16 rounded-lg bg-gray-100 overflow-hidden">
-//                                 <img
-//                                     src={workout.icon}
-//                                     alt="Workout icon"
-//                                     className="w-full h-full object-cover"
-//                                 />
-//                             </div>
-//                         )}
-//                         <label className="cursor-pointer inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
-//                             {uploadingImage ? 'Uploading...' : 'Change Icon'}
-//                             <input
-//                                 type="file"
-//                                 className="hidden"
-//                                 accept="image/*"
-//                                 onChange={handleImageUpload}
-//                                 disabled={uploadingImage}
-//                             />
-//                         </label>
-//                     </div>
-//                 </div>
-//             </div>
-
-//             <Card className="mb-8">
-//                 <CardContent className="p-6">
-//                     <div className="grid grid-cols-2 gap-4">
-//                         <div>
-//                             <label className="text-sm font-medium text-gray-700">Name</label>
-//                             <Input
-//                                 value={workout.name}
-//                                 onChange={(e) => handleUpdateWorkout({ name: e.target.value })}
-//                             />
-//                         </div>
-//                         <div>
-//                             <label className="text-sm font-medium text-gray-700">Type</label>
-//                             <Input
-//                                 value={workout.type}
-//                                 onChange={(e) => handleUpdateWorkout({ type: e.target.value })}
-//                             />
-//                         </div>
-//                         <div>
-//                             <label className="text-sm font-medium text-gray-700">Difficulty</label>
-//                             <Input
-//                                 value={workout.difficulty}
-//                                 onChange={(e) => handleUpdateWorkout({ difficulty: e.target.value })}
-//                             />
-//                         </div>
-//                         <div>
-//                             <label className="text-sm font-medium text-gray-700">Duration (min)</label>
-//                             <Input
-//                                 type="number"
-//                                 value={workout.duration}
-//                                 onChange={(e) => handleUpdateWorkout({ duration: parseInt(e.target.value) })}
-//                             />
-//                         </div>
-//                         <div className="col-span-2">
-//                             <label className="text-sm font-medium text-gray-700">Description</label>
-//                             <Input
-//                                 value={workout.description}
-//                                 onChange={(e) => handleUpdateWorkout({ description: e.target.value })}
-//                             />
-//                         </div>
-//                     </div>
-//                 </CardContent>
-//             </Card>
-
-//             <Card>
-//                 <CardContent className="p-6">
-//                     <h3 className="text-lg font-semibold mb-4">Add New Exercise</h3>
-//                     <form onSubmit={handleAddExercise} className="grid gap-4">
-//                         <div className="grid grid-cols-2 gap-4">
-//                             <div>
-//                                 <label className="text-sm font-medium text-gray-700">Name *</label>
-//                                 <Input
-//                                     required
-//                                     value={newExercise.name}
-//                                     onChange={(e) =>
-//                                         setNewExercise({ ...newExercise, name: e.target.value })
-//                                     }
-//                                     disabled={isSubmitting}
-//                                 />
-//                             </div>
-//                             <div>
-//                                 <label className="text-sm font-medium text-gray-700">Duration (seconds) *</label>
-//                                 <Input
-//                                     required
-//                                     type="number"
-//                                     value={newExercise.duration}
-//                                     onChange={(e) =>
-//                                         setNewExercise({ ...newExercise, duration: e.target.value })
-//                                     }
-//                                     disabled={isSubmitting}
-//                                 />
-//                             </div>
-//                         </div>
-//                         <div>
-//                             <label className="text-sm font-medium text-gray-700">Reps *</label>
-//                             <Input
-//                                 required
-//                                 value={newExercise.reps}
-//                                 onChange={(e) =>
-//                                     setNewExercise({ ...newExercise, reps: e.target.value })
-//                                 }
-//                                 disabled={isSubmitting}
-//                             />
-//                         </div>
-//                         <div className="grid grid-cols-2 gap-4">
-//                             <div>
-//                                 <label className="text-sm font-medium text-gray-700">Video (optional)</label>
-//                                 <Input
-//                                     type="file"
-//                                     accept="video/*"
-//                                     onChange={(e) => {
-//                                         const file = e.target.files?.[0];
-//                                         if (file) {
-//                                             setNewExerciseFiles(prev => ({ ...prev, video: file }));
-//                                         }
-//                                     }}
-//                                     disabled={isSubmitting}
-//                                 />
-//                             </div>
-//                             <div>
-//                                 <label className="text-sm font-medium text-gray-700">Image (optional)</label>
-//                                 <Input
-//                                     type="file"
-//                                     accept="image/*"
-//                                     onChange={(e) => {
-//                                         const file = e.target.files?.[0];
-//                                         if (file) {
-//                                             setNewExerciseFiles(prev => ({ ...prev, image: file }));
-//                                         }
-//                                     }}
-//                                     disabled={isSubmitting}
-//                                 />
-//                             </div>
-//                         </div>
-//                         <Button 
-//                             type="submit"
-//                             className="bg-gradient-to-r from-[#92A3FD] to-[#9DCEFF] text-white"
-//                             disabled={isSubmitting}
-//                         >
-//                             {isSubmitting ? (
-//                                 <div className="flex items-center gap-2">
-//                                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-//                                     Adding...
-//                                 </div>
-//                             ) : (
-//                                 'Add Exercise'
-//                             )}
-//                         </Button>
-//                     </form>
-//                 </CardContent>
-//             </Card>
-
-//             <div className="mt-8">
-//                 <h3 className="text-lg font-semibold mb-4">Exercise List</h3>
-//                 <DndContext
-//                     sensors={sensors}
-//                     collisionDetection={closestCenter}
-//                     onDragEnd={handleDragEnd}
-//                 >
-//                     <SortableContext
-//                         items={exercises.map(ex => ex.id)}
-//                         strategy={verticalListSortingStrategy}
-//                     >
-//                         <div className="space-y-4">
-//                             {exercises.map((exercise) => (
-//                                 <SortableExerciseItem
-//                                     key={exercise.id}
-//                                     exercise={exercise}
-//                                     onDelete={handleDeleteExercise}
-//                                 />
-//                             ))}
-//                             {exercises.length === 0 && (
-//                                 <p className="text-gray-500 text-center py-4">
-//                                     No exercises added yet.
-//                                 </p>
-//                             )}
-//                         </div>
-//                     </SortableContext>
-//                 </DndContext>
-//             </div>
-//         </div>
-//     );
-// }
+import React, { useState, useEffect } from 'react';
+import { View, Text, TextInput, TouchableOpacity, ScrollView, StyleSheet, Platform, Alert, Modal, Image } from 'react-native';
+import { Stack, useLocalSearchParams, router } from 'expo-router';
+import { supabase } from '../../lib/supabase';
+import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
+import * as DocumentPicker from 'expo-document-picker';
+
+interface Exercise {
+    id: string;
+    name: string;
+    duration: string;
+    reps: string;
+    video_url?: string;
+    image_url?: string;
+    set_number: number;
+    workout_id: number;
+}
+
+interface Workout {
+    id: number;
+    name: string;
+    type: string;
+    difficulty: string;
+    duration: number;
+    description: string;
+    exercise_count: number;
+    calories_burned: number;
+    schedule_time?: string;
+    exercises?: Exercise[];
+    icon?: string;
+}
+
+export default function EditWorkout() {
+    const params = useLocalSearchParams();
+    const workoutId = params.id ? parseInt(params.id as string) : null;
+    const [workout, setWorkout] = useState<Workout | null>(null);
+    const [exercises, setExercises] = useState<Exercise[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [modalVisible, setModalVisible] = useState(false);
+    const [editingExercise, setEditingExercise] = useState<Exercise | null>(null);
+    const [newExercise, setNewExercise] = useState<Partial<Exercise>>({
+        name: '',
+        duration: '',
+        reps: '',
+        image_url: '',
+        video_url: '',
+        set_number: 1
+    });
+
+    useEffect(() => {
+        if (workoutId) {
+            fetchWorkout();
+        } else {
+            setLoading(false);
+        }
+    }, [workoutId]);
+
+    const fetchWorkout = async () => {
+        try {
+            const { data: workoutData, error: workoutError } = await supabase
+                .from('workouts')
+                .select('*')
+                .eq('id', workoutId)
+                .single();
+
+            if (workoutError) throw workoutError;
+
+            const { data: exercisesData, error: exercisesError } = await supabase
+                .from('exercises')
+                .select('*')
+                .eq('workout_id', workoutId)
+                .order('set_number', { ascending: true });
+
+            if (exercisesError) throw exercisesError;
+
+            setWorkout(workoutData);
+            setExercises(exercisesData || []);
+        } catch (error) {
+            console.error('Error fetching workout:', error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleUpdateWorkout = async (updates: Partial<Workout>) => {
+        if (!workoutId) return;
+
+        try {
+            const { error } = await supabase
+                .from('workouts')
+                .update(updates)
+                .eq('id', workoutId);
+
+            if (error) throw error;
+
+            setWorkout(prev => prev ? { ...prev, ...updates } : null);
+        } catch (error) {
+            console.error('Error updating workout:', error);
+        }
+    };
+
+    const handleAddExercise = async () => {
+        setModalVisible(true);
+    };
+
+    const handleEditExercise = (exercise: Exercise) => {
+        setEditingExercise(exercise);
+        setNewExercise(exercise);
+        setModalVisible(true);
+    };
+
+    const handleSaveExercise = async () => {
+        if (!workoutId) return;
+
+        try {
+            if (editingExercise) {
+                // Update existierende Übung
+                const { error } = await supabase
+                    .from('exercises')
+                    .update({
+                        name: newExercise.name,
+                        duration: newExercise.duration,
+                        reps: newExercise.reps,
+                        image_url: newExercise.image_url,
+                        video_url: newExercise.video_url
+                    })
+                    .eq('id', editingExercise.id);
+
+                if (error) throw error;
+
+                // Aktualisiere die lokale Liste
+                setExercises(exercises.map(ex => 
+                    ex.id === editingExercise.id 
+                        ? { ...ex, ...newExercise }
+                        : ex
+                ));
+            } else {
+                // Füge neue Übung hinzu
+                const { data, error } = await supabase
+                    .from('exercises')
+                    .insert([
+                        {
+                            ...newExercise,
+                            workout_id: workoutId,
+                            set_number: exercises.length + 1
+                        }
+                    ])
+                    .select();
+
+                if (error) throw error;
+                if (data) {
+                    setExercises([...exercises, data[0]]);
+                }
+            }
+
+            // Reset und schließe Modal
+            setModalVisible(false);
+            setEditingExercise(null);
+            setNewExercise({
+                name: '',
+                duration: '',
+                reps: '',
+                image_url: '',
+                video_url: '',
+                set_number: exercises.length + 1
+            });
+        } catch (error) {
+            console.error('Error saving exercise:', error);
+            Alert.alert('Fehler', 'Übung konnte nicht gespeichert werden');
+        }
+    };
+
+    const handleDeleteExercise = async (exerciseId: string) => {
+        try {
+            const { error } = await supabase
+                .from('exercises')
+                .delete()
+                .eq('id', exerciseId);
+
+            if (error) throw error;
+
+            const newExercises = exercises.filter(e => e.id !== exerciseId);
+            setExercises(newExercises);
+
+            // Update set numbers
+            const updatedExercises = newExercises.map((exercise, index) => ({
+                ...exercise,
+                set_number: index + 1
+            }));
+
+            await Promise.all(
+                updatedExercises.map(exercise =>
+                    supabase
+                        .from('exercises')
+                        .update({ set_number: exercise.set_number })
+                        .eq('id', exercise.id)
+                )
+            );
+
+            setExercises(updatedExercises);
+        } catch (error) {
+            console.error('Error deleting exercise:', error);
+        }
+    };
+
+    const handleSave = async () => {
+        if (!workout || !workoutId) return;
+
+        try {
+            const { error: workoutError } = await supabase
+                .from('workouts')
+                .update({
+                    name: workout.name,
+                    type: workout.type,
+                    difficulty: workout.difficulty,
+                    duration: workout.duration,
+                    description: workout.description
+                })
+                .eq('id', workoutId);
+
+            if (workoutError) throw workoutError;
+
+            // Direkt zurück navigieren
+            router.back();
+        } catch (error) {
+            console.error('Error saving workout:', error);
+            Alert.alert('Fehler', 'Workout konnte nicht gespeichert werden');
+        }
+    };
+
+    const pickVideo = async () => {
+        try {
+            const result = await DocumentPicker.getDocumentAsync({
+                type: 'video/*',
+                copyToCacheDirectory: true
+            });
+
+            if (result.assets && result.assets[0]) {
+                const file = result.assets[0];
+
+                // Für Web: Hole die Datei direkt aus dem File-Objekt
+                const response = await fetch(file.uri);
+                const blob = await response.blob();
+
+                const fileExt = file.name.split('.').pop();
+                const fileName = `${Math.random()}.${fileExt}`;
+                const filePath = `${workoutId}/${fileName}`;
+
+                // Upload to Supabase Storage
+                const { error: uploadError, data } = await supabase.storage
+                    .from('workout-media')
+                    .upload(filePath, blob, {
+                        contentType: file.mimeType,
+                        upsert: true,
+                        cacheControl: '3600'
+                    });
+
+                if (uploadError) {
+                    console.error('Upload error:', uploadError);
+                    throw uploadError;
+                }
+
+                // Get public URL
+                const { data: { publicUrl } } = supabase.storage
+                    .from('workout-media')
+                    .getPublicUrl(filePath);
+
+                setNewExercise(prev => ({
+                    ...prev,
+                    video_url: publicUrl
+                }));
+            }
+        } catch (error) {
+            console.error('Error uploading video:', error);
+            Alert.alert('Fehler', 'Video konnte nicht hochgeladen werden. Bitte stellen Sie sicher, dass Sie angemeldet sind und die notwendigen Berechtigungen haben.');
+        }
+    };
+
+    const pickImage = async () => {
+        try {
+            const result = await DocumentPicker.getDocumentAsync({
+                type: 'image/*',
+                copyToCacheDirectory: true
+            });
+
+            if (result.assets && result.assets[0]) {
+                const file = result.assets[0];
+
+                // Für Web: Hole die Datei direkt aus dem File-Objekt
+                const response = await fetch(file.uri);
+                const blob = await response.blob();
+
+                const fileExt = file.name.split('.').pop();
+                const fileName = `${Math.random()}.${fileExt}`;
+                const filePath = `${workoutId}/${fileName}`;
+
+                // Upload to Supabase Storage
+                const { error: uploadError, data } = await supabase.storage
+                    .from('workout-images')
+                    .upload(filePath, blob, {
+                        contentType: file.mimeType,
+                        upsert: true,
+                        cacheControl: '3600'
+                    });
+
+                if (uploadError) {
+                    console.error('Upload error:', uploadError);
+                    throw uploadError;
+                }
+
+                // Get public URL
+                const { data: { publicUrl } } = supabase.storage
+                    .from('workout-images')
+                    .getPublicUrl(filePath);
+
+                setNewExercise(prev => ({
+                    ...prev,
+                    image_url: publicUrl
+                }));
+            }
+        } catch (error) {
+            console.error('Error uploading image:', error);
+            Alert.alert('Fehler', 'Bild konnte nicht hochgeladen werden. Bitte stellen Sie sicher, dass Sie angemeldet sind und die notwendigen Berechtigungen haben.');
+        }
+    };
+
+    if (loading) {
+        return (
+            <View style={styles.loadingContainer}>
+                <Text>Laden...</Text>
+            </View>
+        );
+    }
+
+    if (!workout) {
+        return (
+            <View style={styles.errorContainer}>
+                <Text>Workout nicht gefunden</Text>
+            </View>
+        );
+    }
+
+    return (
+        <View style={styles.container}>
+            <Stack.Screen
+                options={{
+                    title: 'Workout bearbeiten',
+                    headerStyle: { backgroundColor: '#fff' },
+                    headerShadowVisible: false,
+                }}
+            />
+
+            <ScrollView style={styles.scrollView}>
+                <View style={styles.content}>
+                    {/* Workout Details */}
+                    <View style={styles.section}>
+                        <Text style={styles.sectionTitle}>Workout Details</Text>
+
+                        <View style={styles.inputGroup}>
+                            <Text style={styles.label}>Name</Text>
+                            <TextInput
+                                style={styles.input}
+                                value={workout?.name}
+                                onChangeText={(text) => setWorkout(prev => prev ? { ...prev, name: text } : null)}
+                                placeholder="Workout Name"
+                            />
+                        </View>
+
+                        <View style={styles.inputGroup}>
+                            <Text style={styles.label}>Beschreibung</Text>
+                            <TextInput
+                                style={[styles.input, styles.textArea]}
+                                value={workout?.description}
+                                onChangeText={(text) => setWorkout(prev => prev ? { ...prev, description: text } : null)}
+                                placeholder="Workout Beschreibung"
+                                multiline
+                                numberOfLines={4}
+                            />
+                        </View>
+
+                        <View style={styles.inputGroup}>
+                            <Text style={styles.label}>Dauer (Minuten)</Text>
+                            <TextInput
+                                style={styles.input}
+                                value={workout?.duration.toString()}
+                                onChangeText={(text) => setWorkout(prev => prev ? { ...prev, duration: parseInt(text) || 0 } : null)}
+                                keyboardType="number-pad"
+                                placeholder="Dauer in Minuten"
+                            />
+                        </View>
+
+                        <View style={styles.inputGroup}>
+                            <Text style={styles.label}>Schwierigkeit</Text>
+                            <TextInput
+                                style={styles.input}
+                                value={workout?.difficulty}
+                                onChangeText={(text) => setWorkout(prev => prev ? { ...prev, difficulty: text } : null)}
+                                placeholder="Schwierigkeit"
+                            />
+                        </View>
+
+                        <View style={styles.inputGroup}>
+                            <Text style={styles.label}>Typ</Text>
+                            <TextInput
+                                style={styles.input}
+                                value={workout?.type}
+                                onChangeText={(text) => setWorkout(prev => prev ? { ...prev, type: text } : null)}
+                                placeholder="Workout Typ"
+                            />
+                        </View>
+                    </View>
+
+                    {/* Exercises List */}
+                    <View style={styles.section}>
+                        <Text style={styles.sectionTitle}>Übungen</Text>
+                        
+                        {exercises.map((exercise, index) => (
+                            <View key={exercise.id} style={styles.exerciseItem}>
+                                <View style={styles.exerciseHeader}>
+                                    <Text style={styles.exerciseNumber}>{index + 1}.</Text>
+                                    <Text style={styles.exerciseName}>{exercise.name}</Text>
+                                    <View style={styles.exerciseActions}>
+                                        <TouchableOpacity
+                                            onPress={() => handleEditExercise(exercise)}
+                                            style={styles.actionButton}
+                                        >
+                                            <Ionicons name="pencil-outline" size={24} color="#92A3FD" />
+                                        </TouchableOpacity>
+                                        <TouchableOpacity
+                                            onPress={() => handleDeleteExercise(exercise.id)}
+                                            style={styles.actionButton}
+                                        >
+                                            <Ionicons name="trash-outline" size={24} color="#FF4B4B" />
+                                        </TouchableOpacity>
+                                    </View>
+                                </View>
+                                
+                                <View style={styles.exerciseDetails}>
+                                    <Text style={styles.exerciseInfo}>
+                                        {exercise.duration} • {exercise.reps} Wiederholungen
+                                    </Text>
+                                    {exercise.image_url && (
+                                        <Image 
+                                            source={{ uri: exercise.image_url }}
+                                            style={styles.exerciseImage}
+                                        />
+                                    )}
+                                </View>
+                            </View>
+                        ))}
+
+                        <TouchableOpacity
+                            style={styles.addButton}
+                            onPress={() => {
+                                setEditingExercise(null);
+                                setNewExercise({
+                                    name: '',
+                                    duration: '',
+                                    reps: '',
+                                    image_url: '',
+                                    video_url: '',
+                                    set_number: exercises.length + 1
+                                });
+                                setModalVisible(true);
+                            }}
+                        >
+                            <LinearGradient
+                                colors={['#92A3FD', '#9DCEFF']}
+                                style={styles.buttonGradient}
+                                start={{ x: 0, y: 0 }}
+                                end={{ x: 1, y: 1 }}
+                            >
+                                <Text style={styles.buttonText}>+ Übung hinzufügen</Text>
+                            </LinearGradient>
+                        </TouchableOpacity>
+                    </View>
+
+                    {/* Save Button */}
+                    <TouchableOpacity
+                        style={styles.saveButton}
+                        onPress={handleSave}
+                    >
+                        <LinearGradient
+                            colors={['#92A3FD', '#9DCEFF']}
+                            style={styles.buttonGradient}
+                            start={{ x: 0, y: 0 }}
+                            end={{ x: 1, y: 1 }}
+                        >
+                            <Text style={styles.buttonText}>Änderungen speichern</Text>
+                        </LinearGradient>
+                    </TouchableOpacity>
+                </View>
+            </ScrollView>
+
+            {/* Exercise Modal */}
+            <Modal
+                animationType="slide"
+                transparent={true}
+                visible={modalVisible}
+                onRequestClose={() => {
+                    setModalVisible(false);
+                    setEditingExercise(null);
+                    setNewExercise({
+                        name: '',
+                        duration: '',
+                        reps: '',
+                        image_url: '',
+                        video_url: '',
+                        set_number: exercises.length + 1
+                    });
+                }}
+            >
+                <View style={styles.modalContainer}>
+                    <View style={styles.modalContent}>
+                        <Text style={styles.modalTitle}>
+                            {editingExercise ? 'Übung bearbeiten' : 'Neue Übung hinzufügen'}
+                        </Text>
+
+                        <View style={styles.inputGroup}>
+                            <Text style={styles.label}>Name</Text>
+                            <TextInput
+                                style={styles.input}
+                                value={newExercise.name}
+                                onChangeText={(text) => setNewExercise(prev => ({ ...prev, name: text }))}
+                                placeholder="Übungsname"
+                            />
+                        </View>
+
+                        <View style={styles.inputGroup}>
+                            <Text style={styles.label}>Dauer (z.B. '30 Sekunden')</Text>
+                            <TextInput
+                                style={styles.input}
+                                value={newExercise.duration}
+                                onChangeText={(text) => setNewExercise(prev => ({ ...prev, duration: text }))}
+                                placeholder="Dauer"
+                            />
+                        </View>
+
+                        <View style={styles.inputGroup}>
+                            <Text style={styles.label}>Wiederholungen (z.B. '12x')</Text>
+                            <TextInput
+                                style={styles.input}
+                                value={newExercise.reps}
+                                onChangeText={(text) => setNewExercise(prev => ({ ...prev, reps: text }))}
+                                placeholder="Wiederholungen"
+                            />
+                        </View>
+
+                        <View style={styles.inputGroup}>
+                            <Text style={styles.label}>Bild</Text>
+                            <View style={styles.fileInputContainer}>
+                                <TextInput
+                                    style={[styles.input, styles.fileInput]}
+                                    value={newExercise.image_url}
+                                    placeholder="Kein Bild ausgewählt"
+                                    editable={false}
+                                />
+                                <TouchableOpacity
+                                    style={styles.fileButton}
+                                    onPress={pickImage}
+                                >
+                                    <LinearGradient
+                                        colors={['#92A3FD', '#9DCEFF']}
+                                        style={styles.buttonGradient}
+                                        start={{ x: 0, y: 0 }}
+                                        end={{ x: 1, y: 1 }}
+                                    >
+                                        <Text style={styles.buttonText}>Auswählen</Text>
+                                    </LinearGradient>
+                                </TouchableOpacity>
+                            </View>
+                        </View>
+
+                        <View style={styles.inputGroup}>
+                            <Text style={styles.label}>Video</Text>
+                            <View style={styles.fileInputContainer}>
+                                <TextInput
+                                    style={[styles.input, styles.fileInput]}
+                                    value={newExercise.video_url}
+                                    placeholder="Kein Video ausgewählt"
+                                    editable={false}
+                                />
+                                <TouchableOpacity
+                                    style={styles.fileButton}
+                                    onPress={pickVideo}
+                                >
+                                    <LinearGradient
+                                        colors={['#92A3FD', '#9DCEFF']}
+                                        style={styles.buttonGradient}
+                                        start={{ x: 0, y: 0 }}
+                                        end={{ x: 1, y: 1 }}
+                                    >
+                                        <Text style={styles.buttonText}>Auswählen</Text>
+                                    </LinearGradient>
+                                </TouchableOpacity>
+                            </View>
+                        </View>
+
+                        <View style={styles.modalButtons}>
+                            <TouchableOpacity
+                                style={[styles.modalButton, styles.cancelButton]}
+                                onPress={() => {
+                                    setModalVisible(false);
+                                    setEditingExercise(null);
+                                    setNewExercise({
+                                        name: '',
+                                        duration: '',
+                                        reps: '',
+                                        image_url: '',
+                                        video_url: '',
+                                        set_number: exercises.length + 1
+                                    });
+                                }}
+                            >
+                                <Text style={styles.buttonText}>Abbrechen</Text>
+                            </TouchableOpacity>
+
+                            <TouchableOpacity
+                                style={[styles.modalButton, styles.saveButton]}
+                                onPress={handleSaveExercise}
+                            >
+                                <LinearGradient
+                                    colors={['#92A3FD', '#9DCEFF']}
+                                    style={styles.buttonGradient}
+                                    start={{ x: 0, y: 0 }}
+                                    end={{ x: 1, y: 1 }}
+                                >
+                                    <Text style={styles.buttonText}>
+                                        {editingExercise ? 'Speichern' : 'Hinzufügen'}
+                                    </Text>
+                                </LinearGradient>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                </View>
+            </Modal>
+        </View>
+    );
+}
+
+const styles = StyleSheet.create({
+    container: {
+        flex: 1,
+        backgroundColor: '#fff',
+    },
+    loadingContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    errorContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    scrollView: {
+        flex: 1,
+    },
+    content: {
+        padding: 20,
+    },
+    section: {
+        marginBottom: 24,
+    },
+    sectionTitle: {
+        fontSize: 20,
+        fontWeight: '600',
+        color: '#2D3142',
+        marginBottom: 16,
+    },
+    inputGroup: {
+        marginBottom: 16,
+    },
+    label: {
+        fontSize: 16,
+        color: '#2D3142',
+        marginBottom: 8,
+    },
+    input: {
+        borderWidth: 1,
+        borderColor: '#E5E9F2',
+        borderRadius: 12,
+        padding: 12,
+        fontSize: 16,
+        color: '#2D3142',
+        backgroundColor: '#fff',
+    },
+    textArea: {
+        height: 100,
+        textAlignVertical: 'top',
+    },
+    exerciseItem: {
+        backgroundColor: '#fff',
+        borderRadius: 12,
+        padding: 16,
+        marginBottom: 12,
+        ...Platform.select({
+            ios: {
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.1,
+                shadowRadius: 8,
+            },
+            android: {
+                elevation: 4,
+            },
+        }),
+    },
+    exerciseHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 8,
+    },
+    exerciseNumber: {
+        fontSize: 18,
+        fontWeight: '600',
+        color: '#92A3FD',
+        marginRight: 8,
+    },
+    exerciseName: {
+        flex: 1,
+        fontSize: 18,
+        fontWeight: '500',
+        color: '#2D3142',
+    },
+    exerciseActions: {
+        flexDirection: 'row',
+        gap: 10,
+    },
+    actionButton: {
+        padding: 5,
+    },
+    exerciseDetails: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    exerciseInfo: {
+        fontSize: 14,
+        color: '#4F5E7B',
+    },
+    exerciseImage: {
+        width: '100%',
+        height: 150,
+        borderRadius: 12,
+        marginTop: 10,
+    },
+    addButton: {
+        borderRadius: 12,
+        overflow: 'hidden',
+        marginTop: 16,
+    },
+    saveButton: {
+        borderRadius: 12,
+        overflow: 'hidden',
+        marginTop: 24,
+        marginBottom: 32,
+    },
+    buttonGradient: {
+        paddingVertical: 14,
+        paddingHorizontal: 24,
+        alignItems: 'center',
+    },
+    buttonText: {
+        color: '#fff',
+        fontSize: 16,
+        fontWeight: '600',
+    },
+    modalContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+        padding: 20,
+    },
+    modalContent: {
+        backgroundColor: 'white',
+        borderRadius: 20,
+        padding: 20,
+        width: '100%',
+        maxHeight: '80%',
+    },
+    modalTitle: {
+        fontSize: 20,
+        fontWeight: 'bold',
+        marginBottom: 20,
+        textAlign: 'center',
+    },
+    modalButtons: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        marginTop: 20,
+    },
+    modalButton: {
+        flex: 1,
+        marginHorizontal: 5,
+        borderRadius: 12,
+        overflow: 'hidden',
+    },
+    cancelButton: {
+        backgroundColor: '#F7F8F8',
+        padding: 14,
+    },
+    fileInputContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 10,
+    },
+    fileInput: {
+        flex: 1,
+        backgroundColor: '#F7F8F8',
+    },
+    fileButton: {
+        borderRadius: 12,
+        overflow: 'hidden',
+        width: 100,
+    },
+});

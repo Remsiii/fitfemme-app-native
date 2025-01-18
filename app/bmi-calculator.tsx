@@ -3,195 +3,353 @@ import {
   View,
   Text,
   StyleSheet,
-  TouchableOpacity,
-  ScrollView,
   TextInput,
+  ScrollView,
   Dimensions,
-  Alert,
+  TouchableOpacity,
+  Platform,
+  KeyboardAvoidingView,
+  ActivityIndicator,
 } from 'react-native';
-import { useRouter } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
+import { Stack } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
+import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '@/lib/supabase';
-import { LineChart } from 'react-native-chart-kit';
 
 const screenWidth = Dimensions.get('window').width;
 
-interface WaterLog {
-  amount: number;
-  timestamp: string;
+interface BMICategory {
+  range: string;
+  description: string;
+  color: string;
+  advice: string;
+  healthRisks: string[];
+  recommendations: string[];
 }
 
+const BMI_CATEGORIES: { [key: string]: BMICategory } = {
+  underweight: {
+    range: '< 18.5',
+    description: 'Untergewicht',
+    color: '#FFB156',
+    advice: 'Konsultiere einen Arzt für gesunde Gewichtszunahme-Strategien.',
+    healthRisks: [
+      'Schwaches Immunsystem',
+      'Nährstoffmangel',
+      'Osteoporose-Risiko',
+      'Unregelmäßige Menstruation',
+      'Fruchtbarkeitsprobleme',
+      'Eisenmangel-Anämie'
+    ],
+    recommendations: [
+      'Erhöhe die Kalorienaufnahme mit nährstoffreichen Lebensmitteln',
+      'Integriere gesunde Fette (Avocados, Nüsse, Olivenöl)',
+      'Proteinreiche Ernährung für Muskelaufbau',
+      'Krafttraining für Knochengesundheit',
+      'Regelmäßige kleine Mahlzeiten',
+      'Eisenreiche Lebensmittel'
+    ]
+  },
+  normal: {
+    range: '18.5 - 24.9',
+    description: 'Normalgewicht',
+    color: '#4CAF50',
+    advice: 'Behalte deinen gesunden Lebensstil bei.',
+    healthRisks: [
+      'Minimale gesundheitliche Risiken',
+      'Fokus auf Erhaltung der Gesundheit'
+    ],
+    recommendations: [
+      'Regelmäßige Bewegung (150 Min/Woche)',
+      'Ausgewogene Ernährung mit viel Gemüse',
+      'Regelmäßige Vorsorgeuntersuchungen',
+      'Ausreichend Schlaf (7-9 Stunden)',
+      'Stressmanagement durch Yoga oder Meditation',
+      'Calcium-reiche Ernährung für Knochengesundheit'
+    ]
+  },
+  overweight: {
+    range: '25 - 29.9',
+    description: 'Übergewicht',
+    color: '#FF9800',
+    advice: 'Fokussiere auf ausgewogene Ernährung und mehr Bewegung.',
+    healthRisks: [
+      'Erhöhtes Risiko für Herz-Kreislauf-Erkrankungen',
+      'PCOS (Polyzystisches Ovarialsyndrom)',
+      'Schwangerschaftskomplikationen',
+      'Typ-2-Diabetes-Risiko',
+      'Gelenkprobleme',
+      'Hormonelle Ungleichgewichte'
+    ],
+    recommendations: [
+      'Moderate Kalorienreduktion',
+      'Regelmäßiges Cardio-Training',
+      'Portionskontrolle',
+      'Stressmanagement',
+      'Hormoncheck beim Frauenarzt',
+      'Ausreichend Wassertrinken'
+    ]
+  },
+  obese: {
+    range: '≥ 30',
+    description: 'Adipositas',
+    color: '#F44336',
+    advice: 'Suche professionelle Unterstützung für ein gesundes Gewichtsmanagement.',
+    healthRisks: [
+      'Erhöhtes Brustkrebsrisiko',
+      'Fruchtbarkeitsprobleme',
+      'Schwangerschaftskomplikationen',
+      'Herz-Kreislauf-Erkrankungen',
+      'Schlafapnoe',
+      'Depression und Angstzustände'
+    ],
+    recommendations: [
+      'Ärztliche Beratung',
+      'Strukturiertes Gewichtsmanagement',
+      'Psychologische Unterstützung wenn nötig',
+      'Regelmäßige Bewegung',
+      'Hormonelle Abklärung',
+      'Ernährungsberatung'
+    ]
+  },
+};
+
 export default function BMICalculator() {
-  const router = useRouter();
-  const [dailyGoal, setDailyGoal] = useState<number>(2000);
-  const [waterLogs, setWaterLogs] = useState<WaterLog[]>([]);
-  const [todayTotal, setTodayTotal] = useState<number>(0);
-  const [isEditingGoal, setIsEditingGoal] = useState(false);
-  const [newGoal, setNewGoal] = useState('');
+  const [height, setHeight] = useState('');
+  const [weight, setWeight] = useState('');
+  const [bmi, setBMI] = useState<number | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isEditing, setIsEditing] = useState(false);
 
   useEffect(() => {
-    fetchWaterLogs();
+    loadUserData();
   }, []);
 
-  const fetchWaterLogs = async () => {
+  const loadUserData = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      const today = new Date().toISOString().split('T')[0];
       const { data, error } = await supabase
-        .from('user_activities')
-        .select('water_intake_ml, created_at')
-        .eq('user_id', user.id)
-        .eq('activity_date', today)
-        .order('created_at', { ascending: true });
+        .from('users')
+        .select('height, weight')
+        .eq('id', user.id)
+        .single();
 
       if (error) throw error;
 
       if (data) {
-        const logs = data.map(log => ({
-          amount: log.water_intake_ml,
-          timestamp: new Date(log.created_at).toLocaleTimeString(),
-        }));
-        setWaterLogs(logs);
-        setTodayTotal(logs.reduce((sum, log) => sum + log.amount, 0));
+        setHeight(data.height.toString());
+        setWeight(data.weight.toString());
+        calculateBMI(data.height, data.weight);
       }
     } catch (error) {
-      console.error('Error fetching water logs:', error);
-      Alert.alert('Error', 'Failed to fetch water logs');
+      console.error('Error loading user data:', error);
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const handleSaveGoal = async () => {
-    const newGoalNum = parseInt(newGoal);
-    if (isNaN(newGoalNum) || newGoalNum < 0) {
-      Alert.alert('Invalid Goal', 'Please enter a valid number');
-      return;
+  const calculateBMI = (h: number, w: number) => {
+    const heightInM = h / 100;
+    if (heightInM > 0 && w > 0) {
+      const bmiValue = w / (heightInM * heightInM);
+      setBMI(parseFloat(bmiValue.toFixed(1)));
     }
+  };
 
-    setDailyGoal(newGoalNum);
-    setIsEditingGoal(false);
-    setNewGoal('');
-
+  const updateUserData = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      // Save the new goal to user preferences or settings table
-      // You might need to create a new table for user preferences
+      const { error } = await supabase
+        .from('users')
+        .update({
+          height: parseFloat(height),
+          weight: parseFloat(weight)
+        })
+        .eq('id', user.id);
+
+      if (error) throw error;
+
+      calculateBMI(parseFloat(height), parseFloat(weight));
+      setIsEditing(false);
     } catch (error) {
-      console.error('Error saving goal:', error);
+      console.error('Error updating user data:', error);
     }
   };
 
-  const getProgressColor = (): readonly [string, string] => {
-    const progress = (todayTotal / dailyGoal) * 100;
-    if (progress < 30) return ['#FF9B9B', '#FF6B6B'] as const;
-    if (progress < 70) return ['#FFB86B', '#FF9B6B'] as const;
-    return ['#6BCF91', '#4BA36E'] as const;
+  const getBMICategory = (bmiValue: number): BMICategory => {
+    if (bmiValue < 18.5) return BMI_CATEGORIES.underweight;
+    if (bmiValue < 25) return BMI_CATEGORIES.normal;
+    if (bmiValue < 30) return BMI_CATEGORIES.overweight;
+    return BMI_CATEGORIES.obese;
   };
 
-  const chartData = {
-    labels: waterLogs.map(log => log.timestamp),
-    datasets: [
-      {
-        data: waterLogs.map(log => log.amount),
-        color: (opacity = 1) => `rgba(107, 140, 255, ${opacity})`,
-        strokeWidth: 2,
-      },
-    ],
+  const getScalePosition = (bmiValue: number): string => {
+    const position = ((bmiValue - 15) / 20) * 100;
+    return `${Math.min(Math.max(position, 0), 100)}%`;
   };
+
+  if (isLoading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#6B8CFF" />
+        <Text style={styles.loadingText}>Loading your health data...</Text>
+      </View>
+    );
+  }
 
   return (
-    <ScrollView style={styles.container}>
-      {/* Progress Circle */}
-      <View style={styles.progressSection}>
-        <LinearGradient
-          colors={getProgressColor()}
-          style={styles.progressCircle}
-        >
-          <View style={styles.innerCircle}>
-            <Text style={styles.progressText}>{todayTotal}</Text>
-            <Text style={styles.progressSubtext}>ml</Text>
-          </View>
-        </LinearGradient>
-        <View style={styles.goalContainer}>
-          {isEditingGoal ? (
-            <View style={styles.goalEditContainer}>
-              <TextInput
-                style={styles.goalInput}
-                keyboardType="number-pad"
-                value={newGoal}
-                onChangeText={setNewGoal}
-                placeholder="Enter new goal"
-              />
-              <TouchableOpacity
-                style={styles.saveButton}
-                onPress={handleSaveGoal}
-              >
-                <Text style={styles.saveButtonText}>Save</Text>
-              </TouchableOpacity>
-            </View>
-          ) : (
-            <TouchableOpacity
-              style={styles.goalTextContainer}
-              onPress={() => setIsEditingGoal(true)}
+    <KeyboardAvoidingView 
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      style={styles.container}
+    >
+      <Stack.Screen
+        options={{
+          title: 'BMI Calculator',
+          headerStyle: { backgroundColor: '#f5f5f5' },
+          headerShadowVisible: false,
+        }}
+      />
+      <ScrollView style={styles.scrollView}>
+        <View style={styles.content}>
+          {bmi !== null && !isEditing && (
+            <LinearGradient
+              colors={[getBMICategory(bmi).color, getBMICategory(bmi).color + '80']}
+              style={styles.resultCard}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
             >
-              <Text style={styles.goalText}>Daily Goal: {dailyGoal}ml</Text>
-              <Ionicons name="pencil" size={16} color="#666" />
-            </TouchableOpacity>
+              <View style={styles.bmiCircle}>
+                <Text style={styles.bmiValue}>{bmi}</Text>
+                <Text style={styles.bmiLabel}>BMI</Text>
+              </View>
+              <Text style={styles.categoryText}>
+                {getBMICategory(bmi).description}
+              </Text>
+              <TouchableOpacity
+                style={styles.editButton}
+                onPress={() => setIsEditing(true)}
+              >
+                <Ionicons name="pencil" size={20} color="#fff" />
+                <Text style={styles.editButtonText}>Update Measurements</Text>
+              </TouchableOpacity>
+            </LinearGradient>
           )}
-        </View>
-      </View>
 
-      {/* Today's Logs */}
-      <View style={styles.logsSection}>
-        <Text style={styles.sectionTitle}>Today's Water Intake</Text>
-        <View style={styles.chartContainer}>
-          <LineChart
-            data={chartData}
-            width={screenWidth - 32}
-            height={220}
-            chartConfig={{
-              backgroundColor: '#fff',
-              backgroundGradientFrom: '#fff',
-              backgroundGradientTo: '#fff',
-              decimalPlaces: 0,
-              color: (opacity = 1) => `rgba(107, 140, 255, ${opacity})`,
-              labelColor: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
-              style: {
-                borderRadius: 16,
-              },
-              propsForDots: {
-                r: '4',
-                strokeWidth: '2',
-                stroke: '#6B8CFF',
-              },
-            }}
-            bezier
-            style={styles.chart}
-          />
-        </View>
-
-        <View style={styles.logsList}>
-          {waterLogs.map((log, index) => (
-            <View key={index} style={styles.logItem}>
-              <View style={styles.logInfo}>
-                <Ionicons name="water-outline" size={24} color="#6B8CFF" />
-                <View style={styles.logTexts}>
-                  <Text style={styles.logAmount}>{log.amount}ml</Text>
-                  <Text style={styles.logTime}>{log.timestamp}</Text>
+          {isEditing && (
+            <View style={styles.inputCard}>
+              <Text style={styles.sectionTitle}>Update Measurements</Text>
+              <View style={styles.inputRow}>
+                <View style={styles.inputContainer}>
+                  <Text style={styles.inputLabel}>Height (cm)</Text>
+                  <TextInput
+                    style={styles.input}
+                    keyboardType="numeric"
+                    value={height}
+                    onChangeText={setHeight}
+                    placeholder="170"
+                  />
+                </View>
+                <View style={styles.inputContainer}>
+                  <Text style={styles.inputLabel}>Weight (kg)</Text>
+                  <TextInput
+                    style={styles.input}
+                    keyboardType="numeric"
+                    value={weight}
+                    onChangeText={setWeight}
+                    placeholder="65"
+                  />
                 </View>
               </View>
-              <Text style={styles.logProgress}>
-                {((log.amount / dailyGoal) * 100).toFixed(1)}%
-              </Text>
+              <View style={styles.buttonRow}>
+                <TouchableOpacity
+                  style={[styles.button, styles.cancelButton]}
+                  onPress={() => setIsEditing(false)}
+                >
+                  <Text style={styles.cancelButtonText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.button, styles.saveButton]}
+                  onPress={updateUserData}
+                >
+                  <Text style={styles.saveButtonText}>Save</Text>
+                </TouchableOpacity>
+              </View>
             </View>
-          ))}
+          )}
+
+          {bmi !== null && (
+            <>
+              <View style={styles.scaleCard}>
+                <Text style={styles.sectionTitle}>BMI Scale</Text>
+                <View style={styles.scaleContainer}>
+                  <View style={styles.scaleBar}>
+                    {Object.values(BMI_CATEGORIES).map((category, index) => (
+                      <View
+                        key={index}
+                        style={[
+                          styles.scaleSegment,
+                          { backgroundColor: category.color }
+                        ]}
+                      />
+                    ))}
+                    <View 
+                      style={[
+                        styles.indicator,
+                        { left: getScalePosition(bmi) }
+                      ]}
+                    />
+                  </View>
+                  <View style={styles.scaleLabels}>
+                    {Object.values(BMI_CATEGORIES).map((category, index) => (
+                      <Text key={index} style={styles.scaleLabel}>
+                        {category.range}
+                      </Text>
+                    ))}
+                  </View>
+                </View>
+              </View>
+
+              <View style={styles.healthCard}>
+                <Text style={styles.sectionTitle}>Health Information</Text>
+                <View style={styles.healthSection}>
+                  <Text style={styles.healthTitle}>Potential Health Risks</Text>
+                  {getBMICategory(bmi).healthRisks.map((risk, index) => (
+                    <View key={index} style={styles.listItem}>
+                      <Ionicons name="alert-circle" size={20} color={getBMICategory(bmi).color} />
+                      <Text style={styles.listText}>{risk}</Text>
+                    </View>
+                  ))}
+                </View>
+                <View style={styles.healthSection}>
+                  <Text style={styles.healthTitle}>Recommendations</Text>
+                  {getBMICategory(bmi).recommendations.map((rec, index) => (
+                    <View key={index} style={styles.listItem}>
+                      <Ionicons name="checkmark-circle" size={20} color="#4CAF50" />
+                      <Text style={styles.listText}>{rec}</Text>
+                    </View>
+                  ))}
+                </View>
+              </View>
+
+              <View style={styles.infoCard}>
+                <Text style={styles.sectionTitle}>Über den BMI</Text>
+                <Text style={styles.infoText}>
+                  Der Body Mass Index (BMI) ist ein Richtwert für das Verhältnis von Gewicht zu Körpergröße. Bei Frauen sollten zusätzliche Faktoren wie Körperbau, Alter, Muskelmasse, Schwangerschaft und hormonelle Veränderungen berücksichtigt werden. Der BMI ist ein Orientierungswert - für eine umfassende Gesundheitsbeurteilung sollten Sie Ihren Arzt konsultieren.
+                </Text>
+                <TouchableOpacity style={styles.learnMoreButton}>
+                  <Text style={styles.learnMoreText}>Mehr über BMI erfahren</Text>
+                  <Ionicons name="arrow-forward" size={20} color="#6B8CFF" />
+                </TouchableOpacity>
+              </View>
+            </>
+          )}
         </View>
-      </View>
-    </ScrollView>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -200,124 +358,238 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#f5f5f5',
   },
-  progressSection: {
-    alignItems: 'center',
-    padding: 20,
-    backgroundColor: '#fff',
-    borderBottomLeftRadius: 20,
-    borderBottomRightRadius: 20,
-    boxShadow: '0px 2px 3.84px rgba(0, 0, 0, 0.1)',
-    elevation: 5,
-  },
-  progressCircle: {
-    width: 200,
-    height: 200,
-    borderRadius: 100,
+  loadingContainer: {
+    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: '#f5f5f5',
   },
-  innerCircle: {
-    width: 180,
-    height: 180,
-    borderRadius: 90,
-    backgroundColor: '#fff',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  progressText: {
-    fontSize: 36,
-    fontWeight: 'bold',
-    color: '#333',
-  },
-  progressSubtext: {
+  loadingText: {
+    marginTop: 10,
     fontSize: 16,
     color: '#666',
   },
-  goalContainer: {
-    marginTop: 20,
-    flexDirection: 'row',
-    alignItems: 'center',
+  scrollView: {
+    flex: 1,
   },
-  goalTextContainer: {
+  content: {
+    padding: 20,
+  },
+  resultCard: {
+    padding: 20,
+    borderRadius: 15,
+    marginBottom: 20,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  bmiCircle: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 15,
+  },
+  bmiValue: {
+    fontSize: 32,
+    fontWeight: 'bold',
+    color: '#fff',
+  },
+  bmiLabel: {
+    fontSize: 16,
+    color: '#fff',
+    opacity: 0.8,
+  },
+  categoryText: {
+    fontSize: 24,
+    fontWeight: '600',
+    color: '#fff',
+    marginBottom: 20,
+  },
+  editButton: {
     flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    padding: 10,
+    borderRadius: 20,
     gap: 8,
   },
-  goalText: {
-    fontSize: 16,
-    color: '#666',
-  },
-  goalEditContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  goalInput: {
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    padding: 8,
-    width: 120,
-  },
-  saveButton: {
-    backgroundColor: '#6B8CFF',
-    padding: 8,
-    borderRadius: 8,
-  },
-  saveButtonText: {
+  editButtonText: {
     color: '#fff',
-    fontWeight: 'bold',
+    fontSize: 16,
+    fontWeight: '500',
   },
-  logsSection: {
-    padding: 16,
+  inputCard: {
+    backgroundColor: '#fff',
+    padding: 20,
+    borderRadius: 15,
+    marginBottom: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   sectionTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
+    fontWeight: '600',
     color: '#333',
-    marginBottom: 16,
+    marginBottom: 15,
   },
-  chartContainer: {
-    backgroundColor: '#fff',
-    padding: 16,
-    borderRadius: 16,
-    marginBottom: 16,
-  },
-  chart: {
-    marginVertical: 8,
-    borderRadius: 16,
-  },
-  logsList: {
-    gap: 12,
-  },
-  logItem: {
-    backgroundColor: '#fff',
-    padding: 16,
-    borderRadius: 12,
+  inputRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    marginBottom: 20,
   },
-  logInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
+  inputContainer: {
+    width: '47%',
   },
-  logTexts: {
-    gap: 4,
+  inputLabel: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 8,
   },
-  logAmount: {
+  input: {
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 10,
+    padding: 12,
     fontSize: 16,
-    fontWeight: 'bold',
-    color: '#333',
   },
-  logTime: {
+  buttonRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+  button: {
+    flex: 1,
+    padding: 15,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  saveButton: {
+    backgroundColor: '#6B8CFF',
+  },
+  cancelButton: {
+    backgroundColor: '#f5f5f5',
+  },
+  saveButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  cancelButtonText: {
+    color: '#666',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  scaleCard: {
+    backgroundColor: '#fff',
+    padding: 20,
+    borderRadius: 15,
+    marginBottom: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  scaleContainer: {
+    width: '100%',
+  },
+  scaleBar: {
+    height: 12,
+    borderRadius: 6,
+    flexDirection: 'row',
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  scaleSegment: {
+    flex: 1,
+    height: '100%',
+  },
+  indicator: {
+    position: 'absolute',
+    width: 4,
+    height: 20,
+    backgroundColor: '#000',
+    borderRadius: 2,
+    top: -4,
+    marginLeft: -2,
+  },
+  scaleLabels: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 8,
+  },
+  scaleLabel: {
     fontSize: 12,
     color: '#666',
   },
-  logProgress: {
+  healthCard: {
+    backgroundColor: '#fff',
+    padding: 20,
+    borderRadius: 15,
+    marginBottom: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  healthSection: {
+    marginBottom: 20,
+  },
+  healthTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 10,
+  },
+  listItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+    gap: 10,
+  },
+  listText: {
+    flex: 1,
     fontSize: 14,
+    color: '#666',
+    lineHeight: 20,
+  },
+  infoCard: {
+    backgroundColor: '#fff',
+    padding: 20,
+    borderRadius: 15,
+    marginBottom: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  infoText: {
+    color: '#666',
+    fontSize: 14,
+    lineHeight: 22,
+    marginBottom: 15,
+  },
+  learnMoreButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 10,
+  },
+  learnMoreText: {
     color: '#6B8CFF',
-    fontWeight: 'bold',
+    fontSize: 16,
+    fontWeight: '500',
   },
 });
