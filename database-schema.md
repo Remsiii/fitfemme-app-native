@@ -21,6 +21,7 @@ User profile and authentication information
 | weight | float8 | Weight in kg |
 | height | float8 | Height in cm |
 | goal | text | Fitness goal |
+| daily_water_goal_ml | int4 | Daily water intake goal in milliliters |
 
 ### user_activities
 Daily activity tracking

@@ -16,12 +16,6 @@ export default function TabLayout() {
   const { triggerHaptic } = useSettings();
   const insets = useSafeAreaInsets();
 
-  const dynamicStyles = StyleSheet.create({
-    container: {
-      paddingTop: Platform.OS === 'ios' ? insets.top : 20,
-    },
-  });
-
   return (
     <Tabs
       screenOptions={{
@@ -38,11 +32,8 @@ export default function TabLayout() {
         headerTitle: '',
         headerStyle: {
           backgroundColor: 'transparent',
-          opacity: 0,
         },
         headerShadowVisible: false,
-        headerShown: true,
-        // contentStyle: dynamicStyles.container,
       }}
       screenListeners={{
         tabPress: () => {
@@ -52,7 +43,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: '',
+          title: 'Home',
           tabBarIcon: ({ color }) => <TabBarIcon name="home" color={color} />,
           headerRight: () => (
             <Link href="/settings" asChild>
@@ -73,7 +64,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="profile"
         options={{
-          title: '',
+          title: 'Profile',
           tabBarIcon: ({ color }) => <TabBarIcon name="user" color={color} />,
         }}
       />

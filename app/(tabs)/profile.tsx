@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import {
     View,
     Text,
@@ -11,7 +11,7 @@ import {
     Alert,
 } from "react-native";
 import { useRouter } from "expo-router";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { supabase } from "@/lib/supabase";
 import { Ionicons } from '@expo/vector-icons';
@@ -28,6 +28,7 @@ type RootStackParamList = {
     PrivacyPolicy: undefined;
     Settings: undefined;
     admin: undefined;
+    'edit-profile': undefined;
 };
 
 const Profile = () => {
@@ -56,10 +57,12 @@ const Profile = () => {
     const [notificationsEnabled, setNotificationsEnabled] = useState(true);
     const { hapticEnabled, toggleHaptic } = useSettings();
 
-    useEffect(() => {
-        checkAdminStatus();
-        fetchProfile();
-    }, []);
+    useFocusEffect(
+        React.useCallback(() => {
+            checkAdminStatus();
+            fetchProfile();
+        }, [])
+    );
 
     const checkAdminStatus = async () => {
         try {
@@ -196,7 +199,10 @@ const Profile = () => {
                     />
                     <Text style={styles.name}>{profile.name}</Text>
                     <Text style={styles.program}>{profile.goal}</Text>
-                    <TouchableOpacity style={styles.editButton}>
+                    <TouchableOpacity
+                        style={styles.editButton}
+                        onPress={() => router.push('/edit-profile')}
+                    >
                         <Text style={styles.editButtonText}>Edit</Text>
                     </TouchableOpacity>
 
@@ -257,7 +263,7 @@ const Profile = () => {
                     {isAdmin && (
                         <TouchableOpacity
                             style={styles.menuItem}
-                            onPress={() => router.push('/admin/index')}
+                            onPress={() => router.push('/admin')}
                         >
                             <View style={styles.menuItemContent}>
                                 <Ionicons name="settings-outline" size={24} color="#333" />
@@ -291,6 +297,7 @@ const styles = StyleSheet.create({
         alignItems: "center",
         padding: 16,
         backgroundColor: "#FFFFFF",
+        boxShadow: '0px 2px 3.84px rgba(0, 0, 0, 0.1)',
     },
     headerTitle: {
         fontSize: 18,
@@ -300,6 +307,7 @@ const styles = StyleSheet.create({
         backgroundColor: "#FFFFFF",
         padding: 20,
         alignItems: "center",
+        boxShadow: '0px 2px 3.84px rgba(0, 0, 0, 0.1)',
     },
     avatar: {
         width: 80,
@@ -352,11 +360,13 @@ const styles = StyleSheet.create({
         backgroundColor: "#FFFFFF",
         marginTop: 16,
         paddingVertical: 8,
+        boxShadow: '0px 2px 3.84px rgba(0, 0, 0, 0.1)',
     },
     menuSection: {
         backgroundColor: "#FFFFFF",
         marginTop: 16,
         paddingVertical: 8,
+        boxShadow: '0px 2px 3.84px rgba(0, 0, 0, 0.1)',
     },
     sectionTitle: {
         fontSize: 16,
@@ -403,10 +413,7 @@ const styles = StyleSheet.create({
         backgroundColor: 'white',
         borderRadius: 8,
         padding: 5,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.25,
-        shadowRadius: 3.84,
+        boxShadow: '0px 2px 3.84px rgba(0, 0, 0, 0.1)',
         elevation: 5,
         zIndex: 1000,
     },

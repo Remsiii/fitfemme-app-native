@@ -1,5 +1,5 @@
-import EditWorkoutScreen from '../../components/Admin/EditWorkoutScreen';
+import EditWorkout from '../../components/Admin/EditWorkout';
 
 export default function EditWorkoutPage() {
-  return <EditWorkoutScreen />;
+  return <EditWorkout />;
 }

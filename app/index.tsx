@@ -17,7 +17,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { LineChart } from 'react-native-chart-kit';
 import * as Haptics from 'expo-haptics';
-import { useSettings } from '../../context/SettingsContext';
+import { useSettings } from '../context/SettingsContext';
 import { supabase } from '@/lib/supabase';
 import { Alert } from 'react-native';
 import { useRouter } from "expo-router";
@@ -77,7 +77,7 @@ const HomeScreen = () => {
       const { data: authUser, error: authError } = await supabase.auth.getUser();
 
       if (authError || !authUser?.user) {
-        router.replace("/login");
+        router.replace("/(auth)/login");
         throw new Error("User is not authenticated");
       }
 
@@ -452,7 +452,13 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     borderBottomLeftRadius: 20,
     borderBottomRightRadius: 20,
-    boxShadow: '0px 2px 3.84px rgba(0, 0, 0, 0.1)',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 3.84,
     elevation: 5,
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -504,8 +510,6 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 16,
     marginTop: 16,
-    boxShadow: '0px 2px 3.84px rgba(0, 0, 0, 0.1)',
-    elevation: 5,
   },
   heartRateValue: {
     fontSize: 24,
@@ -530,8 +534,6 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 16,
     marginTop: 16,
-    boxShadow: '0px 2px 3.84px rgba(0, 0, 0, 0.1)',
-    elevation: 5,
   },
   statsHeader: {
     flexDirection: 'row',
@@ -558,8 +560,6 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 16,
     marginTop: 16,
-    boxShadow: '0px 2px 3.84px rgba(0, 0, 0, 0.1)',
-    elevation: 5,
   },
   caloriesTitle: {
     fontSize: 16,
@@ -596,7 +596,13 @@ const styles = StyleSheet.create({
     width: '48%',
     marginBottom: 16,
     alignItems: 'center',
-    boxShadow: '0px 2px 3.84px rgba(0, 0, 0, 0.1)',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 3.84,
     elevation: 5,
   },
   iconContainer: {
@@ -632,9 +638,8 @@ const styles = StyleSheet.create({
     backgroundColor: 'white',
     borderRadius: 20,
     padding: 20,
-    width: '90%',
-    boxShadow: '0px 2px 3.84px rgba(0, 0, 0, 0.1)',
-    elevation: 5,
+    width: '80%',
+    alignItems: 'center',
   },
   modalTitle: {
     fontSize: 18,
