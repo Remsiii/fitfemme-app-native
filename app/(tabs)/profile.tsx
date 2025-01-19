@@ -40,7 +40,7 @@ const Profile = () => {
     const [isAdmin, setIsAdmin] = useState(false);
     const { isLoading: authLoading, isAuthenticated, handleLogout } = useAuthProtection();
     const [profile, setProfile] = useState<{
-        name: string;
+        full_name: string;
         email: string;
         avatar_url: string;
         age: string | number;
@@ -49,7 +49,7 @@ const Profile = () => {
         goal: string;
         birth_date?: string | null;
     }>({
-        name: "New User",
+        full_name: "New User",
         email: "",
         avatar_url: "",
         age: "N/A",
@@ -86,6 +86,10 @@ const Profile = () => {
             const { data: { user }, error: userError } = await supabase.auth.getUser();
             if (userError) throw userError;
 
+            if (!user) {
+                throw new Error('No authenticated user found');
+            }
+
             const { data, error } = await supabase
                 .from('users')
                 .select('*')
@@ -95,8 +99,8 @@ const Profile = () => {
             if (error) throw error;
 
             setProfile({
-                name: data.name || "New User",
-                email: user.email || "",
+                full_name: data.full_name || "New User",
+                email: data.email || "",
                 avatar_url: data.avatar_url || "",
                 age: data.age || "N/A",
                 weight: data.weight || "N/A",
@@ -192,7 +196,7 @@ const Profile = () => {
                     source={profile.avatar_url ? { uri: profile.avatar_url } : require("../../assets/images/react-logo.png")}
                     style={styles.avatar}
                 />
-                <Text style={styles.name}>{profile.name}</Text>
+                <Text style={styles.name}>{profile.full_name}</Text>
                 <Text style={styles.program}>{profile.goal}</Text>
                 <TouchableOpacity
                     style={styles.editButton}
