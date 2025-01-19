@@ -5,6 +5,7 @@ import { SplashScreen, Stack, Slot } from 'expo-router';
 import { useEffect } from 'react';
 import { useColorScheme } from 'react-native';
 import { SettingsProvider } from '../context/SettingsContext';
+import { useRequiredDataCheck } from '@/hooks/useRequiredDataCheck';
 
 export {
   // Catch any errors thrown by the Layout component.
@@ -23,26 +24,36 @@ export default function RootLayout() {
     ...FontAwesome.font,
   });
 
+  const colorScheme = useColorScheme();
+  const { isLoading: checkingUserData } = useRequiredDataCheck();
+
   useEffect(() => {
     if (error) throw error;
   }, [error]);
 
   useEffect(() => {
-    if (loaded) {
+    if (loaded && !checkingUserData) {
       SplashScreen.hideAsync();
     }
-  }, [loaded]);
+  }, [loaded, checkingUserData]);
 
-  if (!loaded) {
+  if (!loaded || checkingUserData) {
     return null;
   }
 
   return (
     <SettingsProvider>
-      <ThemeProvider value={useColorScheme() === 'dark' ? DarkTheme : DefaultTheme}>
+      <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
         <Stack>
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-          <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+          <Stack.Screen name="profile-setup" options={{ 
+            title: 'Complete Profile',
+            headerShown: false 
+          }} />
+          <Stack.Screen name="goal-selection" options={{ 
+            title: 'Select Goal',
+            headerShown: false 
+          }} />
           <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
         </Stack>
       </ThemeProvider>

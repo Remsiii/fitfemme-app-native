@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
     View,
     Text,
@@ -16,6 +16,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { supabase } from "@/lib/supabase";
 import { Ionicons } from '@expo/vector-icons';
 import { useSettings } from '../../context/SettingsContext';
+import { useAuthProtection } from '@/hooks/useAuthProtection';
 
 type RootStackParamList = {
     login: undefined;
@@ -37,6 +38,7 @@ const Profile = () => {
     const [isLoading, setIsLoading] = useState(true);
     const [showMenu, setShowMenu] = useState(false);
     const [isAdmin, setIsAdmin] = useState(false);
+    const { isLoading: authLoading, isAuthenticated, handleLogout } = useAuthProtection();
     const [profile, setProfile] = useState<{
         name: string;
         email: string;
@@ -65,93 +67,77 @@ const Profile = () => {
         const today = new Date();
         let age = today.getFullYear() - birth.getFullYear();
         const monthDiff = today.getMonth() - birth.getMonth();
-        
+
         if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
             age--;
         }
-        
+
         return age;
     };
 
-    useFocusEffect(
-        React.useCallback(() => {
-            checkAdminStatus();
+    useEffect(() => {
+        if (isAuthenticated) {
             fetchProfile();
-        }, [])
-    );
+        }
+    }, [isAuthenticated]);
 
-    const checkAdminStatus = async () => {
+    const fetchProfile = async () => {
         try {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (!user) return;
+            const { data: { user }, error: userError } = await supabase.auth.getUser();
+            if (userError) throw userError;
 
             const { data, error } = await supabase
-                .from('profiles')
-                .select('is_admin')
+                .from('users')
+                .select('*')
                 .eq('id', user.id)
                 .single();
 
             if (error) throw error;
-            setIsAdmin(data?.is_admin || false);
+
+            setProfile({
+                name: data.name || "New User",
+                email: user.email || "",
+                avatar_url: data.avatar_url || "",
+                age: data.age || "N/A",
+                weight: data.weight || "N/A",
+                height: data.height || "N/A",
+                goal: data.fitness_goal || "No specific goal",
+                birth_date: data.birth_date
+            });
+
+            setIsAdmin(data.is_admin || false);
         } catch (error) {
-            console.error('Error checking admin status:', error);
-        }
-    };
-
-    const fetchProfile = async () => {
-        try {
-            const { data: authUser, error: authError } = await supabase.auth.getUser();
-
-            if (authError || !authUser?.user) {
-                navigation.navigate("login");
-                throw new Error("User is not authenticated");
-            }
-
-            const userId = authUser.user.id;
-
-            const { data: profileData, error: dbError } = await supabase
-                .from("users")
-                .select("full_name, email, profile_picture_url, age, weight, height, goal, birth_date")
-                .eq("id", userId)
-                .maybeSingle();
-
-            if (dbError) {
-                console.error("Database error:", dbError);
-                throw dbError;
-            }
-
-            if (profileData) {
-                const calculatedAge = profileData.age || calculateAge(profileData.birth_date);
-                setProfile({
-                    name: profileData.full_name || "New User",
-                    email: profileData.email || "",
-                    avatar_url: profileData.profile_picture_url || "",
-                    age: calculatedAge || "N/A",
-                    weight: profileData.weight || "N/A",
-                    height: profileData.height || "N/A",
-                    goal: profileData.goal || "No specific goal",
-                    birth_date: profileData.birth_date
-                });
-            }
-        } catch (error) {
-            console.error("Error fetching profile:", error);
-            Alert.alert(
-                "Error",
-                "Could not load profile. Please try again."
-            );
+            console.error('Error fetching profile:', error);
         } finally {
             setIsLoading(false);
         }
     };
 
-    const handleLogout = async () => {
-        try {
-            const { error } = await supabase.auth.signOut();
-            if (error) throw error;
-            navigation.replace('login');
-        } catch (error) {
-            Alert.alert('Error', 'Failed to log out');
-        }
+    if (authLoading || isLoading) {
+        return (
+            <View style={styles.loadingContainer}>
+                <ActivityIndicator size="large" color="#7C9EFF" />
+            </View>
+        );
+    }
+
+    const handleLogoutPress = () => {
+        Alert.alert(
+            "Logout",
+            "Are you sure you want to logout?",
+            [
+
+                {
+                    text: "Cancel",
+                    style: "cancel"
+                },
+                {
+                    text: "Logout",
+                    onPress: handleLogout,
+                    style: "destructive"
+                }
+            ]
+        );
     };
 
     const renderThreeDotsMenu = () => {
@@ -172,7 +158,7 @@ const Profile = () => {
                     style={styles.dropdownMenuItem}
                     onPress={() => {
                         setShowMenu(false);
-                        handleLogout();
+                        handleLogoutPress();
                     }}>
                     <Ionicons name="log-out-outline" size={20} color="#FF0000" />
                     <Text style={[styles.menuItemText, { color: '#FF0000' }]}>Logout</Text>
@@ -180,14 +166,6 @@ const Profile = () => {
             </View>
         );
     };
-
-    if (isLoading) {
-        return (
-            <View style={styles.loader}>
-                <ActivityIndicator size="large" color="#6B8CFF" />
-            </View>
-        );
-    }
 
     const MenuLink = ({ icon, title, onPress }: { icon: string, title: string, onPress: () => void }) => (
         <TouchableOpacity style={styles.menuItem} onPress={onPress}>
@@ -200,7 +178,7 @@ const Profile = () => {
     );
 
     return (
-        <View style={styles.container}>
+        <ScrollView style={styles.container}>
             <View style={styles.header}>
                 <TouchableOpacity onPress={() => navigation.goBack()}>
                     <Ionicons name="chevron-back" size={24} color="#000" />
@@ -209,93 +187,92 @@ const Profile = () => {
                 {renderThreeDotsMenu()}
             </View>
             {renderMenu()}
-            <ScrollView style={styles.scrollView}>
-                <View style={styles.profileSection}>
-                    <Image
-                        source={profile.avatar_url ? { uri: profile.avatar_url } : require("../../assets/images/react-logo.png")}
-                        style={styles.avatar}
+            <View style={styles.profileSection}>
+                <Image
+                    source={profile.avatar_url ? { uri: profile.avatar_url } : require("../../assets/images/react-logo.png")}
+                    style={styles.avatar}
+                />
+                <Text style={styles.name}>{profile.name}</Text>
+                <Text style={styles.program}>{profile.goal}</Text>
+                <TouchableOpacity
+                    style={styles.editButton}
+                    onPress={() => router.push('/edit-profile')}
+                >
+                    <Text style={styles.editButtonText}>Edit</Text>
+                </TouchableOpacity>
+
+                <View style={styles.statsContainer}>
+                    <View style={styles.statItem}>
+                        <Text style={styles.statValue}>{profile.height}</Text>
+                        <Text style={styles.statLabel}>Height</Text>
+                    </View>
+                    <View style={styles.statItem}>
+                        <Text style={styles.statValue}>{profile.weight}</Text>
+                        <Text style={styles.statLabel}>Weight</Text>
+                    </View>
+                    <View style={styles.statItem}>
+                        <Text style={styles.statValue}>{profile.age}</Text>
+                        <Text style={styles.statLabel}>Age</Text>
+                    </View>
+                </View>
+            </View>
+
+            <View style={styles.section}>
+                <Text style={styles.sectionTitle}>Account</Text>
+                <MenuLink icon="person-outline" title="Personal Data" onPress={() => navigation.navigate("PersonalData")} />
+                <MenuLink icon="trophy-outline" title="Achievement" onPress={() => navigation.navigate("Achievement")} />
+                <MenuLink icon="time-outline" title="Activity History" onPress={() => navigation.navigate("ActivityHistory")} />
+                <MenuLink icon="fitness-outline" title="Workout Progress" onPress={() => navigation.navigate("WorkoutProgress")} />
+            </View>
+
+            <View style={styles.section}>
+                <Text style={styles.sectionTitle}>Notification</Text>
+                <View style={styles.menuItem}>
+                    <View style={styles.menuItemLeft}>
+                        <Ionicons name="notifications-outline" size={24} color="#666" style={styles.menuIcon} />
+                        <Text style={styles.menuText}>Pop-up Notification</Text>
+                    </View>
+                    <Switch
+                        value={notificationsEnabled}
+                        onValueChange={setNotificationsEnabled}
+                        trackColor={{ false: "#D1D1D6", true: "#6B8CFF" }}
+                        thumbColor={"#FFFFFF"}
                     />
-                    <Text style={styles.name}>{profile.name}</Text>
-                    <Text style={styles.program}>{profile.goal}</Text>
+                </View>
+                <View style={styles.menuItem}>
+                    <View style={styles.menuItemLeft}>
+                        <Ionicons name="notifications-outline" size={24} color="#666" style={styles.menuIcon} />
+                        <Text style={styles.menuText}>Haptic Feedback</Text>
+                    </View>
+                    <Switch
+                        value={hapticEnabled}
+                        onValueChange={toggleHaptic}
+                        trackColor={{ false: "#D1D1D6", true: "#6B8CFF" }}
+                        thumbColor={"#FFFFFF"}
+                    />
+                </View>
+            </View>
+
+            <View style={styles.menuSection}>
+                <Text style={styles.sectionTitle}>Menu</Text>
+                {isAdmin && (
                     <TouchableOpacity
-                        style={styles.editButton}
-                        onPress={() => router.push('/edit-profile')}
+                        style={styles.menuItem}
+                        onPress={() => router.push('/admin')}
                     >
-                        <Text style={styles.editButtonText}>Edit</Text>
+                        <View style={styles.menuItemContent}>
+                            <Ionicons name="settings-outline" size={24} color="#333" />
+                            <Text style={styles.menuItemText}>Admin Dashboard</Text>
+                        </View>
+                        <Ionicons name="chevron-forward" size={24} color="#666" />
                     </TouchableOpacity>
+                )}
+                <MenuLink icon="mail-outline" title="Contact Us" onPress={() => navigation.navigate("ContactUs")} />
+                <MenuLink icon="shield-outline" title="Privacy Policy" onPress={() => navigation.navigate("PrivacyPolicy")} />
+                <MenuLink icon="settings-outline" title="Settings" onPress={() => navigation.navigate("Settings")} />
+            </View>
 
-                    <View style={styles.statsContainer}>
-                        <View style={styles.statItem}>
-                            <Text style={styles.statValue}>{profile.height}</Text>
-                            <Text style={styles.statLabel}>Height</Text>
-                        </View>
-                        <View style={styles.statItem}>
-                            <Text style={styles.statValue}>{profile.weight}</Text>
-                            <Text style={styles.statLabel}>Weight</Text>
-                        </View>
-                        <View style={styles.statItem}>
-                            <Text style={styles.statValue}>{profile.age}</Text>
-                            <Text style={styles.statLabel}>Age</Text>
-                        </View>
-                    </View>
-                </View>
-
-                <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>Account</Text>
-                    <MenuLink icon="person-outline" title="Personal Data" onPress={() => navigation.navigate("PersonalData")} />
-                    <MenuLink icon="trophy-outline" title="Achievement" onPress={() => navigation.navigate("Achievement")} />
-                    <MenuLink icon="time-outline" title="Activity History" onPress={() => navigation.navigate("ActivityHistory")} />
-                    <MenuLink icon="fitness-outline" title="Workout Progress" onPress={() => navigation.navigate("WorkoutProgress")} />
-                </View>
-
-                <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>Notification</Text>
-                    <View style={styles.menuItem}>
-                        <View style={styles.menuItemLeft}>
-                            <Ionicons name="notifications-outline" size={24} color="#666" style={styles.menuIcon} />
-                            <Text style={styles.menuText}>Pop-up Notification</Text>
-                        </View>
-                        <Switch
-                            value={notificationsEnabled}
-                            onValueChange={setNotificationsEnabled}
-                            trackColor={{ false: "#D1D1D6", true: "#6B8CFF" }}
-                            thumbColor={"#FFFFFF"}
-                        />
-                    </View>
-                    <View style={styles.menuItem}>
-                        <View style={styles.menuItemLeft}>
-                            <Ionicons name="notifications-outline" size={24} color="#666" style={styles.menuIcon} />
-                            <Text style={styles.menuText}>Haptic Feedback</Text>
-                        </View>
-                        <Switch
-                            value={hapticEnabled}
-                            onValueChange={toggleHaptic}
-                            trackColor={{ false: "#D1D1D6", true: "#6B8CFF" }}
-                            thumbColor={"#FFFFFF"}
-                        />
-                    </View>
-                </View>
-
-                <View style={styles.menuSection}>
-                    <Text style={styles.sectionTitle}>Menu</Text>
-                    {isAdmin && (
-                        <TouchableOpacity
-                            style={styles.menuItem}
-                            onPress={() => router.push('/admin')}
-                        >
-                            <View style={styles.menuItemContent}>
-                                <Ionicons name="settings-outline" size={24} color="#333" />
-                                <Text style={styles.menuItemText}>Admin Dashboard</Text>
-                            </View>
-                            <Ionicons name="chevron-forward" size={24} color="#666" />
-                        </TouchableOpacity>
-                    )}
-                    <MenuLink icon="mail-outline" title="Contact Us" onPress={() => navigation.navigate("ContactUs")} />
-                    <MenuLink icon="shield-outline" title="Privacy Policy" onPress={() => navigation.navigate("PrivacyPolicy")} />
-                    <MenuLink icon="settings-outline" title="Settings" onPress={() => navigation.navigate("Settings")} />
-                </View>
-            </ScrollView>
-        </View>
+        </ScrollView >
     );
 };
 
@@ -304,10 +281,11 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: "#F8F9FA",
     },
-    loader: {
+    loadingContainer: {
         flex: 1,
-        justifyContent: "center",
-        alignItems: "center",
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: '#F8F9FA',
     },
     header: {
         flexDirection: "row",
@@ -440,9 +418,14 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         padding: 10,
     },
-    scrollView: {
-        flex: 1,
-    }
+    logoutButton: {
+        borderTopWidth: 1,
+        borderTopColor: '#eee',
+        marginTop: 16,
+    },
+    logoutText: {
+        color: '#FF6B6B',
+    },
 });
 
 export default Profile;
