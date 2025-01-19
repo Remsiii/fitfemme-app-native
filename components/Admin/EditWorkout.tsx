@@ -204,6 +204,48 @@ export default function EditWorkout() {
         }
     };
 
+    const pickWorkoutImage = async () => {
+        try {
+            const result = await DocumentPicker.getDocumentAsync({
+                type: 'image/*',
+                copyToCacheDirectory: true
+            });
+
+            if (result.assets && result.assets[0]) {
+                const file = result.assets[0];
+
+                const response = await fetch(file.uri);
+                const blob = await response.blob();
+
+                const fileExt = file.name.split('.').pop();
+                const fileName = `workout_${workoutId}_${Math.random()}.${fileExt}`;
+                const filePath = `workouts/${fileName}`;
+
+                const { error: uploadError } = await supabase.storage
+                    .from('workout-images')
+                    .upload(filePath, blob, {
+                        contentType: file.mimeType,
+                        upsert: true,
+                        cacheControl: '3600'
+                    });
+
+                if (uploadError) {
+                    console.error('Upload error:', uploadError);
+                    throw uploadError;
+                }
+
+                const { data: { publicUrl } } = supabase.storage
+                    .from('workout-images')
+                    .getPublicUrl(filePath);
+
+                setWorkout(prev => prev ? { ...prev, icon: publicUrl } : null);
+            }
+        } catch (error) {
+            console.error('Error uploading workout image:', error);
+            Alert.alert('Fehler', 'Workout-Bild konnte nicht hochgeladen werden.');
+        }
+    };
+
     const handleSave = async () => {
         if (!workout || !workoutId) return;
 
@@ -215,13 +257,13 @@ export default function EditWorkout() {
                     type: workout.type,
                     difficulty: workout.difficulty,
                     duration: workout.duration,
-                    description: workout.description
+                    description: workout.description,
+                    icon: workout.icon
                 })
                 .eq('id', workoutId);
 
             if (workoutError) throw workoutError;
 
-            // Direkt zurück navigieren
             router.back();
         } catch (error) {
             console.error('Error saving workout:', error);
@@ -356,6 +398,31 @@ export default function EditWorkout() {
                     {/* Workout Details */}
                     <View style={styles.section}>
                         <Text style={styles.sectionTitle}>Workout Details</Text>
+
+                        <View style={styles.inputGroup}>
+                            <Text style={styles.label}>Hauptbild</Text>
+                            {workout.icon && (
+                                <Image 
+                                    source={{ uri: workout.icon }}
+                                    style={styles.workoutImage}
+                                />
+                            )}
+                            <TouchableOpacity
+                                style={styles.imageUploadButton}
+                                onPress={pickWorkoutImage}
+                            >
+                                <LinearGradient
+                                    colors={['#92A3FD', '#9DCEFF']}
+                                    style={styles.buttonGradient}
+                                    start={{ x: 0, y: 0 }}
+                                    end={{ x: 1, y: 1 }}
+                                >
+                                    <Text style={styles.buttonText}>
+                                        {workout.icon ? 'Bild ändern' : 'Bild hochladen'}
+                                    </Text>
+                                </LinearGradient>
+                            </TouchableOpacity>
+                        </View>
 
                         <View style={styles.inputGroup}>
                             <Text style={styles.label}>Name</Text>
@@ -814,5 +881,14 @@ const styles = StyleSheet.create({
         borderRadius: 12,
         overflow: 'hidden',
         width: 100,
+    },
+    workoutImage: {
+        width: '100%',
+        height: 200,
+        borderRadius: 10,
+        marginBottom: 10,
+    },
+    imageUploadButton: {
+        marginTop: 10,
     },
 });

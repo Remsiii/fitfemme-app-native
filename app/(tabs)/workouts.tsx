@@ -25,6 +25,7 @@ interface Workout {
     exercise_count: number;
     calories_burned: number;
     exercises?: Exercise[];
+    icon?: string;
 }
 
 export default function WorkoutsScreen() {
@@ -98,6 +99,12 @@ export default function WorkoutsScreen() {
                                 start={{ x: 0, y: 0 }}
                                 end={{ x: 1, y: 1 }}
                             >
+                                {workout.icon && (
+                                    <Image 
+                                        source={{ uri: workout.icon }}
+                                        style={styles.workoutImage}
+                                    />
+                                )}
                                 <View style={styles.workoutHeader}>
                                     <Text style={styles.workoutName}>{workout.name}</Text>
                                     <View style={[
@@ -124,13 +131,6 @@ export default function WorkoutsScreen() {
                                         <Text style={styles.detailText}>{workout.calories_burned} kcal</Text>
                                     </View>
                                 </View>
-
-                                {workout.exercises && workout.exercises.length > 0 && workout.exercises[0].image_url && (
-                                    <Image
-                                        source={{ uri: workout.exercises[0].image_url }}
-                                        style={styles.workoutImage}
-                                    />
-                                )}
 
                                 <Text style={styles.workoutDescription} numberOfLines={2}>
                                     {workout.description}
@@ -219,8 +219,8 @@ const styles = StyleSheet.create({
     workoutImage: {
         width: '100%',
         height: 150,
-        borderRadius: 12,
-        marginBottom: 12,
+        borderTopLeftRadius: 20,
+        borderTopRightRadius: 20,
     },
     workoutDescription: {
         color: '#fff',

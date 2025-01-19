@@ -53,6 +53,11 @@ export default function RegisterScreen() {
             const { data: authData, error: authError } = await supabase.auth.signUp({
                 email,
                 password,
+                options: {
+                    data: {
+                        full_name: `${firstName} ${lastName}`,
+                    }
+                }
             });
 
             if (authError) throw authError;
@@ -66,19 +71,14 @@ export default function RegisterScreen() {
                         {
                             id: authData.user.id,
                             email: email,
-                            password_hash: '', // This will be handled by Supabase Auth
-                            username: email.split('@')[0], // Generate username from email
+                            username: email.split('@')[0],
+                            password_hash: '',
                             full_name: `${firstName} ${lastName}`,
                             profile_picture_url: null,
                             is_active: true,
-                            last_login: null,
                             created_at: new Date().toISOString(),
                             updated_at: new Date().toISOString(),
-                            language: 'en',
-                            age: null,
-                            weight: null,
-                            height: null,
-                            goal: null
+                            language: 'en'
                         }
                     ]);
 
@@ -87,21 +87,26 @@ export default function RegisterScreen() {
                     throw new Error('Failed to create user profile');
                 }
 
-                Alert.alert(
-                    'Success',
-                    'Registration successful! Please check your email to verify your account.',
-                    [
-                        {
-                            text: 'OK',
-                            onPress: () => {
-                                console.log('Navigating to login...');
-                                router.replace('/login');
+                // Set the session
+                const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+                if (sessionError) throw sessionError;
+
+                if (session) {
+                    router.replace('/profile-setup');
+                } else {
+                    Alert.alert(
+                        'Success',
+                        'Registration successful! Please complete your profile.',
+                        [
+                            {
+                                text: 'OK',
+                                onPress: () => router.replace('/profile-setup')
                             }
-                        }
-                    ]
-                );
+                        ]
+                    );
+                }
             }
-        } catch (error: any) {
+        } catch (error) {
             console.log('Registration error:', error);
             Alert.alert('Error', error.message);
         } finally {

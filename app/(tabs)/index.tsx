@@ -53,6 +53,15 @@ const HomeScreen = () => {
   const [showWaterModal, setShowWaterModal] = useState(false);
   const [waterAmount, setWaterAmount] = useState('');
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
+  const [todayWorkout, setTodayWorkout] = useState<any>(null);
+  const [wellnessCheckVisible, setWellnessCheckVisible] = useState(false);
+  const [wellnessResponses, setWellnessResponses] = useState({
+    mood: 0,
+    energy: 0,
+    sleep: 0,
+  });
+  const [lastWaterIntakeDate, setLastWaterIntakeDate] = useState<string>('');
+  const [showWaterReminder, setShowWaterReminder] = useState(false);
   const router = useRouter();
 
   // Function to get relative time string
@@ -147,6 +156,75 @@ const HomeScreen = () => {
     }
   };
 
+  // Fetch today's workout
+  const fetchTodayWorkout = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const today = new Date().toISOString().split('T')[0];
+      
+      const { data, error } = await supabase
+        .from('scheduled_workouts')
+        .select(`
+          *,
+          workout:workouts (
+            id,
+            name,
+            type,
+            duration,
+            difficulty,
+            icon
+          )
+        `)
+        .eq('user_id', user.id)
+        .eq('scheduled_date', today)
+        .single();
+
+      if (error && error.code !== 'PGRST116') {
+        console.error('Error fetching today\'s workout:', error);
+        return;
+      }
+
+      setTodayWorkout(data?.workout || null);
+    } catch (error) {
+      console.error('Error:', error);
+    }
+  };
+
+  // Check water intake
+  const checkWaterIntake = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const today = new Date().toISOString().split('T')[0];
+      
+      const { data, error } = await supabase
+        .from('user_activities')
+        .select('created_at')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single();
+
+      if (error && error.code !== 'PGRST116') {
+        console.error('Error checking water intake:', error);
+        return;
+      }
+
+      if (data) {
+        const lastIntakeDate = new Date(data.created_at).toISOString().split('T')[0];
+        setLastWaterIntakeDate(lastIntakeDate);
+        setShowWaterReminder(lastIntakeDate !== today);
+      } else {
+        setShowWaterReminder(true);
+      }
+    } catch (error) {
+      console.error('Error:', error);
+    }
+  };
+
   // Update water intake
   const handleAddWater = async () => {
     try {
@@ -226,6 +304,8 @@ const HomeScreen = () => {
   useEffect(() => {
     fetchProfile();
     fetchUserActivities();
+    fetchTodayWorkout();
+    checkWaterIntake();
   }, []);
 
   // -------------------------------------
@@ -263,6 +343,42 @@ const HomeScreen = () => {
     ],
   };
 
+  // Handle wellness check
+  const handleWellnessCheck = () => {
+    setWellnessCheckVisible(true);
+  };
+
+  // Submit wellness check
+  const submitWellnessCheck = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const today = new Date().toISOString().split('T')[0];
+      
+      const { error } = await supabase
+        .from('wellness_checks')
+        .insert([
+          {
+            user_id: user.id,
+            check_date: today,
+            mood_rating: wellnessResponses.mood,
+            energy_rating: wellnessResponses.energy,
+            sleep_rating: wellnessResponses.sleep
+          }
+        ]);
+
+      if (error) throw error;
+
+      setWellnessCheckVisible(false);
+      triggerHaptic();
+      Alert.alert('Success', 'Thank you for checking in! 🌸');
+    } catch (error) {
+      console.error('Error saving wellness check:', error);
+      Alert.alert('Error', 'Failed to save wellness check');
+    }
+  };
+
   // -------------------------------------
   // RETURN: UI
   // -------------------------------------
@@ -283,8 +399,62 @@ const HomeScreen = () => {
       <View style={styles.targetSection}>
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Today Target</Text>
-          <TouchableOpacity style={styles.checkButton} onPress={triggerHaptic}>
-            <Text style={styles.checkButtonText}>Check</Text>
+        </View>
+
+        <View style={styles.targetContent}>
+          {todayWorkout && (
+            <TouchableOpacity 
+              style={styles.todayWorkoutCard}
+              onPress={() => router.push(`/workout/${todayWorkout.id}`)}
+            >
+              <LinearGradient
+                colors={['#92A3FD', '#9DCEFF']}
+                style={styles.workoutCardGradient}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+              >
+                {todayWorkout.icon && (
+                  <Image 
+                    source={{ uri: todayWorkout.icon }}
+                    style={styles.workoutCardImage}
+                  />
+                )}
+                <View style={styles.workoutCardContent}>
+                  <Text style={styles.workoutCardTitle}>{todayWorkout.name}</Text>
+                  <Text style={styles.workoutCardDetails}>
+                    {todayWorkout.duration} min • {todayWorkout.difficulty}
+                  </Text>
+                </View>
+                <View style={styles.workoutCardAction}>
+                  <Ionicons name="arrow-forward" size={24} color="#fff" />
+                </View>
+              </LinearGradient>
+            </TouchableOpacity>
+          )}
+
+          <TouchableOpacity 
+            style={styles.reminderCard}
+            onPress={() => router.push('/wellness')}
+          >
+            <LinearGradient
+              colors={['#FF9DC4', '#FF6B9C']}
+              style={styles.reminderCardGradient}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+            >
+              <View style={styles.reminderIconContainer}>
+                <Ionicons name="flower" size={24} color="#fff" />
+              </View>
+              <View style={styles.reminderContent}>
+                <Text style={styles.reminderTitle}>Track Your Wellness 🌸</Text>
+                <Text style={styles.reminderText}>
+                  Check your daily wellness and stay hydrated!
+                </Text>
+              </View>
+              <View style={styles.reminderAction}>
+                <Ionicons name="arrow-forward" size={24} color="#fff" />
+              </View>
+            </LinearGradient>
           </TouchableOpacity>
         </View>
       </View>
@@ -474,27 +644,180 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   targetSection: {
-    padding: 16,
+    padding: 20,
+    backgroundColor: '#fff',
   },
-  sectionHeader: {
+  targetContent: {
+    marginTop: 15,
+    gap: 15,
+  },
+  todayWorkoutCard: {
+    borderRadius: 20,
+    overflow: 'hidden',
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+  },
+  workoutCardGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 15,
+  },
+  workoutCardImage: {
+    width: 60,
+    height: 60,
+    borderRadius: 12,
+    marginRight: 15,
+  },
+  workoutCardContent: {
+    flex: 1,
+  },
+  workoutCardTitle: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: 5,
+  },
+  workoutCardDetails: {
+    color: '#fff',
+    opacity: 0.9,
+    fontSize: 14,
+  },
+  workoutCardAction: {
+    padding: 10,
+  },
+  reminderCard: {
+    borderRadius: 20,
+    overflow: 'hidden',
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+  },
+  reminderCardGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 15,
+  },
+  reminderIconContainer: {
+    width: 45,
+    height: 45,
+    borderRadius: 22.5,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 15,
+  },
+  reminderContent: {
+    flex: 1,
+  },
+  reminderTitle: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: 5,
+  },
+  reminderText: {
+    color: '#fff',
+    opacity: 0.9,
+    fontSize: 14,
+  },
+  reminderAction: {
+    padding: 10,
+  },
+  modalContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  modalContent: {
+    backgroundColor: '#fff',
+    borderRadius: 25,
+    padding: 20,
+    width: '90%',
+    maxWidth: 400,
+  },
+  modalTitle: {
+    fontSize: 24,
+    fontWeight: '600',
+    textAlign: 'center',
+    marginBottom: 5,
+    color: '#333',
+  },
+  modalSubtitle: {
+    fontSize: 16,
+    textAlign: 'center',
+    marginBottom: 20,
+    color: '#666',
+  },
+  ratingContainer: {
+    marginBottom: 20,
+  },
+  ratingLabel: {
+    fontSize: 16,
+    marginBottom: 10,
+    color: '#333',
+    fontWeight: '500',
+  },
+  ratingButtons: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    gap: 10,
+  },
+  ratingButton: {
+    flex: 1,
+    backgroundColor: '#f0f0f0',
+    padding: 12,
+    borderRadius: 12,
     alignItems: 'center',
   },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#000',
-    marginBottom: 16,
+  ratingButtonSelected: {
+    backgroundColor: '#FF9DC4',
   },
-  checkButton: {
-    backgroundColor: '#6B8CFF',
-    padding: 10,
-    borderRadius: 10,
+  ratingButtonText: {
+    fontSize: 16,
+    color: '#666',
+    fontWeight: '500',
   },
-  checkButtonText: {
+  ratingButtonTextSelected: {
     color: '#fff',
-    fontSize: 14,
+  },
+  modalActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 20,
+    gap: 15,
+  },
+  modalCancelButton: {
+    flex: 1,
+    padding: 15,
+    borderRadius: 25,
+    borderWidth: 1,
+    borderColor: '#FF9DC4',
+    alignItems: 'center',
+  },
+  modalCancelButtonText: {
+    color: '#FF9DC4',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  modalSubmitButton: {
+    flex: 1,
+    borderRadius: 25,
+    overflow: 'hidden',
+  },
+  modalSubmitButtonGradient: {
+    padding: 15,
+    alignItems: 'center',
+  },
+  modalSubmitButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
   },
   activitySection: {
     padding: 16,

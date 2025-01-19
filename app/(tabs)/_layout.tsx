@@ -53,7 +53,7 @@ export default function TabLayout() {
                   <FontAwesome
                     name="gear"
                     size={25}
-                    color="#6B8CFF"
+                    color={'#000'}
                     style={{ marginRight: 15, opacity: pressed ? 0.5 : 1 }}
                   />
                 )}
@@ -62,13 +62,23 @@ export default function TabLayout() {
           ),
         }}
       />
+
       <Tabs.Screen
         name="workouts"
         options={{
           title: 'Workouts',
-          tabBarIcon: ({ color }) => <Ionicons name="fitness-outline" size={24} color={color} />,
+          tabBarIcon: ({ color }) => <Ionicons name="barbell-outline" size={28} color={color} />,
         }}
       />
+
+      <Tabs.Screen
+        name="wellness"
+        options={{
+          title: 'Wellness',
+          tabBarIcon: ({ color }) => <Ionicons name="flower-outline" size={28} color={color} />,
+        }}
+      />
+
       <Tabs.Screen
         name="profile"
         options={{

@@ -45,6 +45,7 @@ const Profile = () => {
         weight: string | number;
         height: string | number;
         goal: string;
+        birth_date?: string | null;
     }>({
         name: "New User",
         email: "",
@@ -52,10 +53,25 @@ const Profile = () => {
         age: "N/A",
         weight: "N/A",
         height: "N/A",
-        goal: "No specific goal"
+        goal: "No specific goal",
+        birth_date: null
     });
     const [notificationsEnabled, setNotificationsEnabled] = useState(true);
     const { hapticEnabled, toggleHaptic } = useSettings();
+
+    const calculateAge = (birthDate: string | null) => {
+        if (!birthDate) return null;
+        const birth = new Date(birthDate);
+        const today = new Date();
+        let age = today.getFullYear() - birth.getFullYear();
+        const monthDiff = today.getMonth() - birth.getMonth();
+        
+        if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+            age--;
+        }
+        
+        return age;
+    };
 
     useFocusEffect(
         React.useCallback(() => {
@@ -95,7 +111,7 @@ const Profile = () => {
 
             const { data: profileData, error: dbError } = await supabase
                 .from("users")
-                .select("full_name, email, profile_picture_url, age, weight, height, goal")
+                .select("full_name, email, profile_picture_url, age, weight, height, goal, birth_date")
                 .eq("id", userId)
                 .maybeSingle();
 
@@ -105,14 +121,16 @@ const Profile = () => {
             }
 
             if (profileData) {
+                const calculatedAge = profileData.age || calculateAge(profileData.birth_date);
                 setProfile({
                     name: profileData.full_name || "New User",
                     email: profileData.email || "",
                     avatar_url: profileData.profile_picture_url || "",
-                    age: profileData.age || "N/A",
+                    age: calculatedAge || "N/A",
                     weight: profileData.weight || "N/A",
                     height: profileData.height || "N/A",
-                    goal: profileData.goal || "No specific goal"
+                    goal: profileData.goal || "No specific goal",
+                    birth_date: profileData.birth_date
                 });
             }
         } catch (error) {
