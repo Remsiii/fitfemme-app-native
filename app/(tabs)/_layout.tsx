@@ -1,34 +1,65 @@
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { Link, Tabs } from 'expo-router';
-import { Pressable, useColorScheme, Platform, StyleSheet } from 'react-native';
+import { Pressable, useColorScheme, Platform, StyleSheet, View } from 'react-native';
 import { useSettings } from '../../context/SettingsContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { BlurView } from 'expo-blur';
 
 function TabBarIcon(props: {
   name: React.ComponentProps<typeof FontAwesome>['name'];
   color: string;
+  focused: boolean;
 }) {
-  return <FontAwesome size={28} style={{ marginBottom: -3 }} {...props} />;
+  return (
+    <View style={[styles.iconContainer, props.focused && styles.activeIconContainer]}>
+      <FontAwesome size={24} {...props} />
+    </View>
+  );
 }
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
   const { triggerHaptic } = useSettings();
   const insets = useSafeAreaInsets();
+  const isDark = colorScheme === 'dark';
 
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: '#6B8CFF',
+        tabBarActiveTintColor: '#ff758f',
+        tabBarInactiveTintColor: isDark ? '#666' : '#999',
         tabBarStyle: {
-          backgroundColor: colorScheme === 'dark' ? '#000' : '#fff',
-          borderTopWidth: 0,
+          position: 'absolute',
+          bottom: insets.bottom + 10,
+          left: 20,
+          right: 20,
           elevation: 0,
-          shadowOpacity: 0,
-          paddingBottom: 5
+          borderRadius: 20,
+          height: 55,
+          backgroundColor: isDark ? 'rgba(30, 30, 30, 0.9)' : 'rgba(255, 255, 255, 0.9)',
+          borderTopWidth: 0,
+          shadowColor: '#000',
+          shadowOffset: {
+            width: 0,
+            height: 4,
+          },
+          shadowOpacity: 0.1,
+          shadowRadius: 12,
+          ...Platform.select({
+            ios: {
+              backdropFilter: 'blur(20px)',
+            },
+            android: {
+              elevation: 8,
+            },
+          }),
         },
-        tabBarItemStyle: { paddingVertical: 5 },
+        tabBarItemStyle: {
+          height: 55,
+          paddingBottom: 10,
+        },
+        tabBarShowLabel: false,
         headerTransparent: true,
         headerTitle: '',
         headerStyle: {
@@ -44,8 +75,9 @@ export default function TabLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Home',
-          tabBarIcon: ({ color }) => <TabBarIcon name="home" color={color} />,
+          tabBarIcon: ({ color, focused }) => (
+            <TabBarIcon name="home" color={color} focused={focused} />
+          ),
           headerRight: () => (
             <Link href="/settings" asChild>
               <Pressable onPress={() => triggerHaptic()}>
@@ -53,7 +85,7 @@ export default function TabLayout() {
                   <FontAwesome
                     name="gear"
                     size={25}
-                    color={'#000'}
+                    color={isDark ? '#fff' : '#000'}
                     style={{ marginRight: 15, opacity: pressed ? 0.5 : 1 }}
                   />
                 )}
@@ -66,26 +98,47 @@ export default function TabLayout() {
       <Tabs.Screen
         name="workouts"
         options={{
-          title: 'Workouts',
-          tabBarIcon: ({ color }) => <Ionicons name="barbell-outline" size={28} color={color} />,
+          tabBarIcon: ({ color, focused }) => (
+            <View style={[styles.iconContainer, focused && styles.activeIconContainer]}>
+              <Ionicons name="barbell-outline" size={24} color={color} />
+            </View>
+          ),
         }}
       />
 
       <Tabs.Screen
         name="wellness"
         options={{
-          title: 'Wellness',
-          tabBarIcon: ({ color }) => <Ionicons name="flower-outline" size={28} color={color} />,
+          tabBarIcon: ({ color, focused }) => (
+            <View style={[styles.iconContainer, focused && styles.activeIconContainer]}>
+              <Ionicons name="flower-outline" size={24} color={color} />
+            </View>
+          ),
         }}
       />
 
       <Tabs.Screen
         name="profile"
         options={{
-          title: 'Profile',
-          tabBarIcon: ({ color }) => <TabBarIcon name="user" color={color} />,
+          tabBarIcon: ({ color, focused }) => (
+            <TabBarIcon name="user" color={color} focused={focused} />
+          ),
         }}
       />
     </Tabs>
   );
 }
+
+const styles = StyleSheet.create({
+  iconContainer: {
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 12,
+    marginTop: 15,
+  },
+  activeIconContainer: {
+    backgroundColor: '#fff1f3',
+  },
+});

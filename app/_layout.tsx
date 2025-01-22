@@ -1,11 +1,10 @@
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { useFonts } from 'expo-font';
-import { SplashScreen, Stack, Slot } from 'expo-router';
+import { SplashScreen, Stack } from 'expo-router';
 import { useEffect } from 'react';
 import { useColorScheme } from 'react-native';
 import { SettingsProvider } from '../context/SettingsContext';
-import { useRequiredDataCheck } from '@/hooks/useRequiredDataCheck';
 
 export {
   // Catch any errors thrown by the Layout component.
@@ -25,19 +24,18 @@ export default function RootLayout() {
   });
 
   const colorScheme = useColorScheme();
-  const { isLoading: checkingUserData } = useRequiredDataCheck();
 
   useEffect(() => {
     if (error) throw error;
   }, [error]);
 
   useEffect(() => {
-    if (loaded && !checkingUserData) {
+    if (loaded) {
       SplashScreen.hideAsync();
     }
-  }, [loaded, checkingUserData]);
+  }, [loaded]);
 
-  if (!loaded || checkingUserData) {
+  if (!loaded) {
     return null;
   }
 
@@ -46,6 +44,7 @@ export default function RootLayout() {
       <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
         <Stack>
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+          <Stack.Screen name="(auth)" options={{ headerShown: false }} />
           <Stack.Screen name="profile-setup" options={{ 
             title: 'Complete Profile',
             headerShown: false 

@@ -9,7 +9,11 @@ import {
     ActivityIndicator,
     Switch,
     Alert,
+    Modal,
+    FlatList,
 } from "react-native";
+import * as ImagePicker from 'expo-image-picker';
+import { decode } from 'base64-arraybuffer';
 import { useRouter } from "expo-router";
 import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -60,6 +64,14 @@ const Profile = () => {
     });
     const [notificationsEnabled, setNotificationsEnabled] = useState(true);
     const { hapticEnabled, toggleHaptic } = useSettings();
+    const [showAvatarModal, setShowAvatarModal] = useState(false);
+
+    const predefinedAvatars = [
+        { id: 'blonde-photo', source: require('../../assets/images/blonde.webp') },
+        { id: 'blonde', source: require('../../assets/avatars/blonde-fitness.svg') },
+        { id: 'brunette', source: require('../../assets/avatars/brunette-fitness.svg') },
+        { id: 'black-hair', source: require('../../assets/avatars/black-hair-fitness.svg') },
+    ];
 
     const calculateAge = (birthDate: string | null) => {
         if (!birthDate) return null;
@@ -98,13 +110,16 @@ const Profile = () => {
 
             if (error) throw error;
 
+            // Calculate age from birth_date
+            const age = data.birth_date ? calculateAge(data.birth_date) : "N/A";
+
             setProfile({
                 full_name: data.full_name || "New User",
                 email: data.email || "",
                 avatar_url: data.avatar_url || "",
-                age: data.age || "N/A",
-                weight: data.weight || "N/A",
-                height: data.height || "N/A",
+                age: age,
+                weight: data.weight ? `${data.weight} kg` : "N/A",
+                height: data.height ? `${data.height} cm` : "N/A",
                 goal: data.fitness_goal || "No specific goal",
                 birth_date: data.birth_date
             });
@@ -112,6 +127,96 @@ const Profile = () => {
             setIsAdmin(data.is_admin || false);
         } catch (error) {
             console.error('Error fetching profile:', error);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const pickImage = async () => {
+        try {
+            const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+            if (status !== 'granted') {
+                Alert.alert('Sorry, we need camera roll permissions to make this work!');
+                return;
+            }
+
+            const result = await ImagePicker.launchImageLibraryAsync({
+                mediaTypes: ImagePicker.MediaTypeOptions.Images,
+                allowsEditing: true,
+                aspect: [1, 1],
+                quality: 0.5,
+                base64: true,
+            });
+
+            if (!result.canceled && result.assets[0].base64) {
+                setIsLoading(true);
+                const { data: { user } } = await supabase.auth.getUser();
+                if (!user) throw new Error('No user found');
+
+                const filePath = `${user.id}/${new Date().getTime()}.jpg`;
+                const contentType = 'image/jpeg';
+                
+                // Upload image to Supabase Storage
+                const { error: uploadError } = await supabase.storage
+                    .from('user_photos')
+                    .upload(filePath, decode(result.assets[0].base64), {
+                        contentType,
+                        upsert: true
+                    });
+
+                if (uploadError) throw uploadError;
+
+                // Get public URL
+                const { data: { publicUrl } } = supabase.storage
+                    .from('user_photos')
+                    .getPublicUrl(filePath);
+
+                // Update user profile with the new avatar URL
+                const { error: updateError } = await supabase
+                    .from('users')
+                    .update({ avatar_url: publicUrl })
+                    .eq('id', user.id)
+                    .select();
+
+                if (updateError) throw updateError;
+
+                setProfile(prev => ({
+                    ...prev,
+                    avatar_url: publicUrl
+                }));
+            }
+        } catch (error) {
+            console.error('Error uploading image:', error);
+            Alert.alert('Error', 'Failed to upload image. Please try again.');
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const selectPredefinedAvatar = async (avatar) => {
+        try {
+            setIsLoading(true);
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) throw new Error('No user found');
+
+            // Update user profile with selected avatar
+            const { error: updateError } = await supabase
+                .from('users')
+                .update({ avatar_url: avatar.source })
+                .eq('id', user.id)
+                .select();
+
+            if (updateError) throw updateError;
+
+            setProfile(prev => ({
+                ...prev,
+                avatar_url: avatar.source
+            }));
+
+            setShowAvatarModal(false);
+        } catch (error) {
+            console.error('Error updating avatar:', error);
+            Alert.alert('Error', 'Failed to update avatar. Please try again.');
         } finally {
             setIsLoading(false);
         }
@@ -184,18 +289,34 @@ const Profile = () => {
     return (
         <ScrollView style={styles.container}>
             <View style={styles.header}>
-                <TouchableOpacity onPress={() => navigation.goBack()}>
-                    <Ionicons name="chevron-back" size={24} color="#000" />
-                </TouchableOpacity>
                 {/* <Text style={styles.headerTitle}>Profile</Text> */}
                 {renderThreeDotsMenu()}
             </View>
             {renderMenu()}
             <View style={styles.profileSection}>
-                <Image
-                    source={profile.avatar_url ? { uri: profile.avatar_url } : require("../../assets/images/react-logo.png")}
-                    style={styles.avatar}
-                />
+                <TouchableOpacity onPress={() => setShowAvatarModal(true)} style={styles.avatarContainer}>
+                    {profile.avatar_url ? (
+                        profile.avatar_url.startsWith('http') ? (
+                            <Image
+                                source={{ uri: profile.avatar_url }}
+                                style={styles.avatar}
+                            />
+                        ) : (
+                            <Image
+                                source={predefinedAvatars.find(a => a.id === profile.avatar_url)?.source || predefinedAvatars[0].source}
+                                style={styles.avatar}
+                            />
+                        )
+                    ) : (
+                        <Image
+                            source={predefinedAvatars[0].source}
+                            style={styles.avatar}
+                        />
+                    )}
+                    <View style={styles.editIconContainer}>
+                        <Ionicons name="pencil" size={14} color="white" />
+                    </View>
+                </TouchableOpacity>
                 <Text style={styles.name}>{profile.full_name}</Text>
                 <Text style={styles.program}>{profile.goal}</Text>
                 <TouchableOpacity
@@ -276,6 +397,45 @@ const Profile = () => {
                 <MenuLink icon="settings-outline" title="Settings" onPress={() => navigation.navigate("Settings")} />
             </View>
 
+            <Modal
+                visible={showAvatarModal}
+                transparent={true}
+                animationType="slide"
+                onRequestClose={() => setShowAvatarModal(false)}
+            >
+                <View style={styles.modalOverlay}>
+                    <View style={styles.modalContent}>
+                        <Text style={styles.modalTitle}>Choose Avatar</Text>
+                        <View style={styles.avatarGrid}>
+                            {predefinedAvatars.map((avatar) => (
+                                <TouchableOpacity
+                                    key={avatar.id}
+                                    style={styles.avatarOption}
+                                    onPress={() => selectPredefinedAvatar(avatar)}
+                                >
+                                    <Image source={avatar.source} style={styles.avatarPreview} />
+                                </TouchableOpacity>
+                            ))}
+                        </View>
+                        <TouchableOpacity
+                            style={styles.uploadButton}
+                            onPress={() => {
+                                setShowAvatarModal(false);
+                                pickImage();
+                            }}
+                        >
+                            <Ionicons name="image" size={24} color="white" style={styles.uploadIcon} />
+                            <Text style={styles.uploadButtonText}>Upload Custom Image</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                            style={styles.cancelButton}
+                            onPress={() => setShowAvatarModal(false)}
+                        >
+                            <Text style={styles.cancelButtonText}>Cancel</Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            </Modal>
         </ScrollView >
     );
 };
@@ -309,11 +469,31 @@ const styles = StyleSheet.create({
         alignItems: "center",
         boxShadow: '0px 2px 3.84px rgba(0, 0, 0, 0.1)',
     },
+    avatarContainer: {
+        position: 'relative',
+        width: 80,
+        height: 80,
+        alignSelf: 'center',
+        marginBottom: 12,
+    },
     avatar: {
         width: 80,
         height: 80,
         borderRadius: 40,
-        marginBottom: 12,
+        backgroundColor: '#f0f0f0',
+    },
+    editIconContainer: {
+        position: 'absolute',
+        right: -2,
+        bottom: -2,
+        backgroundColor: '#ff758f',
+        borderRadius: 12,
+        width: 24,
+        height: 24,
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderWidth: 2,
+        borderColor: 'white',
     },
     name: {
         fontSize: 20,
@@ -429,6 +609,69 @@ const styles = StyleSheet.create({
     },
     logoutText: {
         color: '#FF6B6B',
+    },
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    modalContent: {
+        backgroundColor: 'white',
+        borderRadius: 20,
+        padding: 20,
+        width: '80%',
+        alignItems: 'center',
+    },
+    modalTitle: {
+        fontSize: 20,
+        fontWeight: 'bold',
+        marginBottom: 20,
+        color: '#333',
+    },
+    avatarGrid: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        justifyContent: 'center',
+        marginBottom: 20,
+    },
+    avatarOption: {
+        margin: 10,
+        borderRadius: 40,
+        overflow: 'hidden',
+        borderWidth: 2,
+        borderColor: '#ff758f',
+    },
+    avatarPreview: {
+        width: 80,
+        height: 80,
+    },
+    uploadButton: {
+        backgroundColor: '#ff758f',
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 12,
+        borderRadius: 10,
+        width: '100%',
+        marginBottom: 10,
+    },
+    uploadButtonText: {
+        color: 'white',
+        fontSize: 16,
+        marginLeft: 8,
+    },
+    uploadIcon: {
+        marginRight: 4,
+    },
+    cancelButton: {
+        padding: 12,
+        width: '100%',
+        alignItems: 'center',
+    },
+    cancelButtonText: {
+        color: '#666',
+        fontSize: 16,
     },
 });
 

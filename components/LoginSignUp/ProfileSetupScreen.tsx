@@ -18,7 +18,6 @@ import { Svg, Path, Circle } from 'react-native-svg';
 import { supabase } from '@/lib/supabase';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
-import { calculateAge } from '@/utils/dateUtils';
 import { useRequiredDataCheck } from '@/hooks/useRequiredDataCheck';
 import DateTimePickerModal from "react-native-modal-datetime-picker";
 
@@ -45,7 +44,7 @@ const ExerciseIllustration = () => (
 
 export default function ProfileSetupScreen() {
     const { userData, missingFields, isLoading: checkingData } = useRequiredDataCheck();
-    const [gender, setGender] = useState('');
+    const [gender, setGender] = useState('female');
     const [showGenderPicker, setShowGenderPicker] = useState(false);
     const [dateOfBirth, setDateOfBirth] = useState(new Date());
     const [showDatePicker, setShowDatePicker] = useState(false);
@@ -55,15 +54,42 @@ export default function ProfileSetupScreen() {
     const router = useRouter();
 
     useEffect(() => {
-        if (userData) {
-            if (userData.gender) setGender(userData.gender);
-            if (userData.birth_date) setDateOfBirth(new Date(userData.birth_date));
-            if (userData.weight) setWeight(userData.weight.toString());
-            if (userData.height) setHeight(userData.height.toString());
-        }
-    }, [userData]);
+        const fetchProfile = async () => {
+            try {
+                const { data: { user } } = await supabase.auth.getUser();
+                if (!user) return;
+
+                const { data, error } = await supabase
+                    .from('users')
+                    .select('*')
+                    .eq('id', user.id)
+                    .single();
+
+                console.log('Profile data:', data);
+
+                if (error) throw error;
+
+                if (data) {
+                    setGender('female');
+                    if (data.birth_date) {
+                        const date = new Date(data.birth_date);
+                        console.log('Birth date from DB:', data.birth_date);
+                        console.log('Parsed date:', date);
+                        setDateOfBirth(date);
+                    }
+                    if (data.weight) setWeight(data.weight.toString());
+                    if (data.height) setHeight(data.height.toString());
+                }
+            } catch (error) {
+                console.error('Error fetching profile:', error);
+            }
+        };
+
+        fetchProfile();
+    }, []);
 
     const formatDate = (date: Date) => {
+        console.log('Formatting date:', date);
         return date.toLocaleDateString('en-GB', {
             day: '2-digit',
             month: 'short',
@@ -71,8 +97,22 @@ export default function ProfileSetupScreen() {
         });
     };
 
+    const calculateAge = (birthDate: Date) => {
+        console.log('Calculating age for date:', birthDate);
+        const today = new Date();
+        let age = today.getFullYear() - birthDate.getFullYear();
+        const monthDiff = today.getMonth() - birthDate.getMonth();
+        
+        if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+            age--;
+        }
+        
+        console.log('Calculated age:', age);
+        return age;
+    };
+
     const handleSaveProfile = async () => {
-        if (!gender || !dateOfBirth || !weight || !height) {
+        if (!dateOfBirth || !weight || !height) {
             Alert.alert('Missing Information', 'Please fill in all fields to continue');
             return;
         }
@@ -81,25 +121,39 @@ export default function ProfileSetupScreen() {
         try {
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) throw new Error('No user found');
+            if (!user.email) throw new Error('No email found');
 
-            const { error } = await supabase
+            const profileData = {
+                id: user.id,
+                email: user.email,
+                password_hash: '',
+                gender: 'female',
+                birth_date: dateOfBirth.toISOString(),
+                weight: parseFloat(weight),
+                height: parseFloat(height),
+                updated_at: new Date().toISOString(),
+            };
+
+            console.log('Saving profile data:', profileData);
+
+            const { data, error } = await supabase
                 .from('users')
-                .upsert({
-                    id: user.id,
-                    email: user.email,
-                    password_hash: '',
-                    gender,
-                    birth_date: dateOfBirth.toISOString(),
-                    weight: parseFloat(weight),
-                    height: parseFloat(height),
-                    updated_at: new Date().toISOString(),
-                });
+                .upsert(profileData)
+                .select()
+                .single();
 
             if (error) {
                 console.error('Database error:', error);
                 throw error;
             }
-            router.push('/goal-selection');
+
+            console.log('Saved profile data:', data);
+
+            // Wait a moment to ensure the data is properly saved
+            await new Promise(resolve => setTimeout(resolve, 500));
+
+            // Use replace instead of push to prevent going back
+            router.replace('/goal-selection');
         } catch (error) {
             Alert.alert('Error', 'Failed to save profile. Please try again.');
             console.error('Error saving profile:', error);
@@ -125,22 +179,14 @@ export default function ProfileSetupScreen() {
                     </View>
 
                     <View style={styles.form}>
-                        <Pressable
+                        <View
                             style={[
                                 styles.input,
-                                missingFields.gender && styles.inputError,
-                                gender && styles.inputFilled
+                                styles.inputFilled
                             ]}
-                            onPress={() => setShowGenderPicker(true)}
                         >
-                            <Text style={[
-                                styles.inputText,
-                                !gender && styles.placeholderText
-                            ]}>
-                                {gender || 'Select Gender'}
-                            </Text>
-                            <Ionicons name="chevron-down" size={24} color="#666" />
-                        </Pressable>
+                            <Text style={[styles.inputText]}>Female</Text>
+                        </View>
 
                         <TouchableOpacity
                             style={[
@@ -153,16 +199,61 @@ export default function ProfileSetupScreen() {
                             <View style={styles.inputContent}>
                                 <View style={styles.inputLeft}>
                                     <Ionicons name="calendar-outline" size={24} color="#666" />
-                                    <Text style={styles.inputText}>
-                                        {formatDate(dateOfBirth)}
-                                    </Text>
+                                    {Platform.OS === 'web' ? (
+                                        <input
+                                            type="date"
+                                            value={dateOfBirth.toISOString().split('T')[0]}
+                                            onChange={(e) => {
+                                                const newDate = new Date(e.target.value);
+                                                setDateOfBirth(newDate);
+                                            }}
+                                            style={{
+                                                border: 'none',
+                                                fontSize: 16,
+                                                color: '#1A1A1A',
+                                                fontFamily: 'inherit',
+                                                marginLeft: 8,
+                                                outline: 'none'
+                                            }}
+                                            max={new Date().toISOString().split('T')[0]}
+                                            min="1900-01-01"
+                                        />
+                                    ) : (
+                                        <Text style={styles.inputText}>
+                                            {formatDate(dateOfBirth)}
+                                        </Text>
+                                    )}
                                 </View>
                                 <Text style={styles.ageText}>
-                                    {calculateAge(dateOfBirth)} years old
+                                    {dateOfBirth ? `${calculateAge(dateOfBirth)} years old` : 'Select date'}
                                 </Text>
                             </View>
                         </TouchableOpacity>
 
+                        {Platform.OS !== 'web' && (
+                            <DateTimePickerModal
+                                isVisible={showDatePicker}
+                                mode="date"
+                                onConfirm={(date) => {
+                                    setDateOfBirth(date);
+                                    setShowDatePicker(false);
+                                }}
+                                onCancel={() => setShowDatePicker(false)}
+                                date={dateOfBirth}
+                                maximumDate={new Date()}
+                                minimumDate={new Date('1900-01-01')}
+                                modalStyleIOS={{
+                                    margin: 0,
+                                    justifyContent: 'flex-end'
+                                }}
+                                pickerContainerStyleIOS={{
+                                    paddingTop: 20,
+                                    borderTopLeftRadius: 20,
+                                    borderTopRightRadius: 20,
+                                    backgroundColor: 'white'
+                                }}
+                            />
+                        )}
                         <View style={styles.row}>
                             <View style={styles.halfInput}>
                                 <TextInput
@@ -177,7 +268,7 @@ export default function ProfileSetupScreen() {
                                     keyboardType="numeric"
                                     placeholderTextColor="#666"
                                 />
-                                <Text style={styles.unit}>kg</Text>
+                                <Text style={[styles.unit, { position: 'absolute', right: 10 }]}>kg</Text>
                             </View>
                             <View style={styles.halfInput}>
                                 <TextInput
@@ -192,7 +283,7 @@ export default function ProfileSetupScreen() {
                                     keyboardType="numeric"
                                     placeholderTextColor="#666"
                                 />
-                                <Text style={styles.unit}>cm</Text>
+                                <Text style={[styles.unit, { position: 'absolute', right: 10 }]}>cm</Text>
                             </View>
                         </View>
                     </View>
@@ -215,59 +306,6 @@ export default function ProfileSetupScreen() {
                             )}
                         </LinearGradient>
                     </TouchableOpacity>
-
-                    <Modal
-                        visible={showGenderPicker}
-                        transparent={true}
-                        animationType="slide"
-                    >
-                        <TouchableOpacity
-                            style={styles.modalOverlay}
-                            activeOpacity={1}
-                            onPress={() => setShowGenderPicker(false)}
-                        >
-                            <View style={styles.modalContent}>
-                                <View style={styles.modalHeader}>
-                                    <Text style={styles.modalTitle}>Select Gender</Text>
-                                    <TouchableOpacity onPress={() => setShowGenderPicker(false)}>
-                                        <Text style={styles.modalDoneText}>Done</Text>
-                                    </TouchableOpacity>
-                                </View>
-                                {['Male', 'Female', 'Other'].map((option) => (
-                                    <TouchableOpacity
-                                        key={option}
-                                        style={[
-                                            styles.modalOption,
-                                            gender === option && styles.modalOptionSelected
-                                        ]}
-                                        onPress={() => {
-                                            setGender(option);
-                                            setShowGenderPicker(false);
-                                        }}
-                                    >
-                                        <Text style={[
-                                            styles.modalOptionText,
-                                            gender === option && styles.modalOptionTextSelected
-                                        ]}>
-                                            {option}
-                                        </Text>
-                                    </TouchableOpacity>
-                                ))}
-                            </View>
-                        </TouchableOpacity>
-                    </Modal>
-
-                    <DateTimePickerModal
-                        isVisible={showDatePicker}
-                        mode="date"
-                        onConfirm={(date) => {
-                            setDateOfBirth(date);
-                            setShowDatePicker(false);
-                        }}
-                        onCancel={() => setShowDatePicker(false)}
-                        maximumDate={new Date()}
-                        minimumDate={new Date('1900-01-01')}
-                    />
                 </View>
             )}
         </SafeAreaView>
@@ -310,15 +348,14 @@ const styles = StyleSheet.create({
         gap: 16,
     },
     input: {
-        height: 56,
-        backgroundColor: '#F8F9FA',
-        borderRadius: 12,
-        paddingHorizontal: 16,
+        backgroundColor: '#F7F7F7',
         borderWidth: 1,
         borderColor: '#E2E8F0',
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
+        borderRadius: 12,
+        padding: 16,
+        fontSize: 16,
+        color: '#1A1A1A',
+        width: '100%',
     },
     inputContent: {
         flexDirection: 'row',
@@ -335,26 +372,24 @@ const styles = StyleSheet.create({
         fontSize: 16,
         color: '#1A1A1A',
     },
-    placeholderText: {
-        color: '#666',
-    },
     ageText: {
         fontSize: 14,
         color: '#666',
     },
     row: {
         flexDirection: 'row',
-        gap: 16,
+        justifyContent: 'space-between',
+        gap: 10,
+        marginTop: 15,
     },
     halfInput: {
         flex: 1,
         position: 'relative',
     },
     unit: {
-        position: 'absolute',
-        right: 16,
-        top: 18,
+        fontSize: 14,
         color: '#666',
+        marginLeft: 4,
     },
     button: {
         marginTop: 'auto',
@@ -376,55 +411,11 @@ const styles = StyleSheet.create({
         fontSize: 18,
         fontWeight: '600',
     },
-    modalOverlay: {
-        flex: 1,
-        backgroundColor: 'rgba(0, 0, 0, 0.5)',
-        justifyContent: 'flex-end',
-    },
-    modalContent: {
-        backgroundColor: '#fff',
-        borderTopLeftRadius: 20,
-        borderTopRightRadius: 20,
-        paddingBottom: 20,
-    },
-    modalHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        padding: 16,
-        borderBottomWidth: 1,
-        borderBottomColor: '#E2E8F0',
-    },
-    modalTitle: {
-        fontSize: 18,
-        fontWeight: '600',
-        color: '#1A1A1A',
-    },
-    modalDoneText: {
-        color: '#7C9EFF',
-        fontSize: 16,
-        fontWeight: '600',
-    },
-    modalOption: {
-        padding: 16,
-        borderBottomWidth: 1,
-        borderBottomColor: '#E2E8F0',
-    },
-    modalOptionSelected: {
-        backgroundColor: '#F0F5FF',
-    },
-    modalOptionText: {
-        fontSize: 16,
-        color: '#1A1A1A',
-    },
-    modalOptionTextSelected: {
-        color: '#7C9EFF',
-        fontWeight: '600',
-    },
     inputError: {
         borderColor: '#FF6B6B',
     },
     inputFilled: {
         borderColor: '#7C9EFF',
+        backgroundColor: '#FFFFFF',
     },
 });

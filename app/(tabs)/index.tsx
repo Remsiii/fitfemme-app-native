@@ -137,19 +137,24 @@ const HomeScreen = () => {
         .eq('user_id', user.id)
         .eq('activity_date', today)
         .order('created_at', { ascending: false })
-        .limit(1)
-        .single();
+        .limit(1);
 
-      if (error && error.code !== 'PGRST116') {
+      if (error) {
         console.error('Error fetching activities:', error);
         return;
       }
 
-      if (data) {
-        setWaterIntake(data.water_intake_ml || 0);
-        if (data.heart_rate) {
-          setHeartRate(data.heart_rate);
+      // Get the first item if exists
+      const latestActivity = data?.[0];
+      if (latestActivity) {
+        setWaterIntake(latestActivity.water_intake_ml || 0);
+        if (latestActivity.heart_rate) {
+          setHeartRate(latestActivity.heart_rate);
         }
+      } else {
+        // No activities found for today
+        setWaterIntake(0);
+        setHeartRate(null);
       }
     } catch (error) {
       console.error('Error:', error);
@@ -165,7 +170,7 @@ const HomeScreen = () => {
       const today = new Date().toISOString().split('T')[0];
       
       const { data, error } = await supabase
-        .from('scheduled_workouts')
+        .from('assigned_workouts')
         .select(`
           *,
           workout:workouts (
@@ -178,7 +183,7 @@ const HomeScreen = () => {
           )
         `)
         .eq('user_id', user.id)
-        .eq('scheduled_date', today)
+        .eq('assigned_date', today)
         .single();
 
       if (error && error.code !== 'PGRST116') {
@@ -205,19 +210,21 @@ const HomeScreen = () => {
         .select('created_at')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
-        .limit(1)
-        .single();
+        .limit(1);
 
-      if (error && error.code !== 'PGRST116') {
+      if (error) {
         console.error('Error checking water intake:', error);
         return;
       }
 
-      if (data) {
-        const lastIntakeDate = new Date(data.created_at).toISOString().split('T')[0];
+      const lastActivity = data?.[0];
+      if (lastActivity) {
+        const lastIntakeDate = new Date(lastActivity.created_at).toISOString().split('T')[0];
         setLastWaterIntakeDate(lastIntakeDate);
         setShowWaterReminder(lastIntakeDate !== today);
       } else {
+        // No previous water intake found
+        setLastWaterIntakeDate(null);
         setShowWaterReminder(true);
       }
     } catch (error) {

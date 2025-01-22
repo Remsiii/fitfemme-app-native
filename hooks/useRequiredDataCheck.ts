@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useRouter } from 'expo-router';
+import { useRouter, useSegments } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 
 export interface UserData {
@@ -30,16 +30,15 @@ export const useRequiredDataCheck = () => {
     });
     const [isLoading, setIsLoading] = useState(true);
     const router = useRouter();
-
-    useEffect(() => {
-        checkUserData();
-    }, []);
+    const segments = useSegments();
 
     const checkUserData = async () => {
         try {
             const { data: { user }, error: userError } = await supabase.auth.getUser();
             if (userError || !user) {
-                router.replace('/register');
+                if (segments[0] !== '(auth)') {
+                    router.replace('/register');
+                }
                 return;
             }
 
@@ -49,30 +48,34 @@ export const useRequiredDataCheck = () => {
                 .eq('id', user.id)
                 .single();
 
-            if (error) throw error;
+            if (error) {
+                console.error('Error fetching user data:', error);
+                return;
+            }
 
             setUserData(data);
 
             const missing = {
-                gender: !data.gender,
-                birth_date: !data.birth_date,
-                weight: !data.weight,
-                height: !data.height,
-                fitness_goal: !data.fitness_goal,
+                gender: !data?.gender,
+                birth_date: !data?.birth_date,
+                weight: !data?.weight,
+                height: !data?.height,
+                fitness_goal: !data?.fitness_goal,
             };
 
             setMissingFields(missing);
-
-            // If any required field is missing, redirect to profile setup
-            if (Object.values(missing).some(field => field)) {
-                router.push('/profile-setup');
-            }
         } catch (error) {
             console.error('Error checking user data:', error);
         } finally {
             setIsLoading(false);
         }
     };
+
+    useEffect(() => {
+        if (segments[0] !== undefined) {
+            checkUserData();
+        }
+    }, [segments]);
 
     return { userData, missingFields, isLoading };
 };

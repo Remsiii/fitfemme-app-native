@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="200px" height="200px" viewBox="0 0 200 200" version="1.1" xmlns="http://www.w3.org/2000/svg">
+    <circle cx="100" cy="100" r="95" fill="#f8d7da" stroke="#ff758f" stroke-width="4"/>
+    <g transform="translate(50, 60)">
+        <!-- Dumbbell -->
+        <rect x="20" y="35" width="60" height="10" rx="5" fill="#ff758f"/>
+        <circle cx="15" cy="40" r="15" fill="#ff758f"/>
+        <circle cx="85" cy="40" r="15" fill="#ff758f"/>
+        <!-- Smile -->
+        <path d="M25,20 Q50,40 75,20" fill="none" stroke="#ff758f" stroke-width="4"/>
+    </g>
+</svg>
