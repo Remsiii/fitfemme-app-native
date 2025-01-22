@@ -78,20 +78,6 @@ export default function TabLayout() {
           tabBarIcon: ({ color, focused }) => (
             <TabBarIcon name="home" color={color} focused={focused} />
           ),
-          headerRight: () => (
-            <Link href="/settings" asChild>
-              <Pressable onPress={() => triggerHaptic()}>
-                {({ pressed }) => (
-                  <FontAwesome
-                    name="gear"
-                    size={25}
-                    color={isDark ? '#fff' : '#000'}
-                    style={{ marginRight: 15, opacity: pressed ? 0.5 : 1 }}
-                  />
-                )}
-              </Pressable>
-            </Link>
-          ),
         }}
       />
 

@@ -82,10 +82,13 @@ User notifications
 |--------|------|-------------|
 | id | uuid | Primary key |
 | user_id | uuid | Foreign key to users |
-| type | varchar | Notification type |
+| type | varchar | Notification type (workout, water, period, andree-workout, system) |
 | message | text | Notification message |
 | read | bool | Read status |
+| image_url | text | Optional image URL for notification |
+| sender_name | varchar | Optional sender name (e.g., 'Andree') |
 | created_at | timestamp | Creation timestamp |
+| updated_at | timestamp | Last update timestamp |
 
 ### workouts
 Workout definitions
@@ -116,15 +119,19 @@ Exercise definitions
 | video_url | text | Exercise video |
 
 ### assigned_workouts
-Workout assignments to users
+Workouts assigned to users
 | Column | Type | Description |
 |--------|------|-------------|
 | id | uuid | Primary key |
-| workout_id | int4 | Foreign key to workouts |
 | user_id | uuid | Foreign key to users |
-| assigned_date | date | Assignment date |
-| completed | bool | Completion status |
-| created_at | timestamp | Assignment timestamp |
+| workout_id | int4 | Foreign key to workouts |
+| assigned_date | date | Date workout is assigned |
+| scheduled_time | time | Time workout is scheduled for |
+| completed | bool | Whether workout is completed |
+| notification_sent | bool | Whether notification has been sent |
+| notification_retry_count | int2 | Number of notification send attempts |
+| created_at | timestamp | Record creation time |
+| updated_at | timestamp | Last update time |
 
 ### workout_history
 User workout completion history

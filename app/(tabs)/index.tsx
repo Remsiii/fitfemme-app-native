@@ -21,6 +21,7 @@ import { useSettings } from '../../context/SettingsContext';
 import { supabase } from '@/lib/supabase';
 import { Alert } from 'react-native';
 import { useRouter } from "expo-router";
+import { createWaterReminderNotification, createWorkoutNotification, createPeriodNotification } from '@/utils/notifications';
 
 const screenWidth = Dimensions.get('window').width;
 
@@ -156,8 +157,32 @@ const HomeScreen = () => {
         setWaterIntake(0);
         setHeartRate(null);
       }
+
+      // Check period tracking
+      const { data: periodData } = await supabase
+        .from('period_tracking')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('period_start_date', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (periodData) {
+        const lastPeriodStart = new Date(periodData.period_start_date);
+        const nextPeriodStart = new Date(lastPeriodStart);
+        nextPeriodStart.setDate(nextPeriodStart.getDate() + (periodData.cycle_length || 28));
+        
+        const today = new Date();
+        const daysUntilNextPeriod = Math.ceil((nextPeriodStart.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+        
+        // Send notification 3 days before next period
+        if (daysUntilNextPeriod <= 3 && daysUntilNextPeriod > 0) {
+          await createPeriodNotification(user.id, daysUntilNextPeriod);
+        }
+      }
+
     } catch (error) {
-      console.error('Error:', error);
+      console.error('Error fetching user activities:', error);
     }
   };
 
@@ -167,33 +192,106 @@ const HomeScreen = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      const today = new Date().toISOString().split('T')[0];
-      
+      // Get today's date in user's timezone
+      const today = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD format
+
       const { data, error } = await supabase
         .from('assigned_workouts')
         .select(`
-          *,
+          id,
           workout:workouts (
             id,
             name,
-            type,
             duration,
             difficulty,
             icon
-          )
+          ),
+          scheduled_time,
+          notification_sent,
+          notification_retry_count
         `)
         .eq('user_id', user.id)
         .eq('assigned_date', today)
-        .single();
+        .maybeSingle();
 
-      if (error && error.code !== 'PGRST116') {
-        console.error('Error fetching today\'s workout:', error);
-        return;
+      if (error) throw error;
+
+      if (data?.workout) {
+        setTodayWorkout(data.workout);
+        
+        // Only send notification if it hasn't been sent yet or if retries are available
+        const maxRetries = 3;
+        const retryCount = data.notification_retry_count || 0;
+        
+        if (!data.notification_sent && retryCount < maxRetries) {
+          // Format time for notification
+          const scheduledTime = data.scheduled_time || '09:00:00';
+          const [hours, minutes] = scheduledTime.split(':');
+          
+          // Create date object for scheduled time today
+          const timeDate = new Date();
+          timeDate.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+          
+          // Format time in user's locale
+          const formattedTime = timeDate.toLocaleTimeString(undefined, { 
+            hour: 'numeric', 
+            minute: '2-digit',
+            hour12: true 
+          });
+
+          // Send Andree's workout notification if it's 30 minutes before the scheduled time
+          const now = new Date();
+          const timeDiff = timeDate.getTime() - now.getTime();
+          const minutesUntilWorkout = Math.floor(timeDiff / (1000 * 60));
+
+          // Only send if workout is within the next 30 minutes and hasn't started yet
+          if (minutesUntilWorkout <= 30 && minutesUntilWorkout > 0) {
+            const notificationSent = await createWorkoutNotification(
+              user.id, 
+              data.workout.name, 
+              formattedTime,
+              data.workout.duration,
+              data.workout.difficulty
+            );
+            
+            if (notificationSent) {
+              // Mark notification as sent
+              await supabase
+                .from('assigned_workouts')
+                .update({ 
+                  notification_sent: true,
+                  notification_retry_count: retryCount + 1,
+                  updated_at: new Date().toISOString()
+                })
+                .eq('id', data.id);
+            } else {
+              // Update retry count on failure
+              await supabase
+                .from('assigned_workouts')
+                .update({ 
+                  notification_retry_count: retryCount + 1,
+                  updated_at: new Date().toISOString()
+                })
+                .eq('id', data.id);
+            }
+          }
+        }
+
+        // Reset notification flags at midnight
+        const now = new Date();
+        if (now.getHours() === 0 && now.getMinutes() === 0) {
+          await supabase
+            .from('assigned_workouts')
+            .update({ 
+              notification_sent: false,
+              notification_retry_count: 0,
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', data.id);
+        }
       }
-
-      setTodayWorkout(data?.workout || null);
     } catch (error) {
-      console.error('Error:', error);
+      console.error('Error fetching today workout:', error);
     }
   };
 
@@ -204,31 +302,26 @@ const HomeScreen = () => {
       if (!user) return;
 
       const today = new Date().toISOString().split('T')[0];
-      
+
       const { data, error } = await supabase
         .from('user_activities')
-        .select('created_at')
+        .select('water_intake_ml')
         .eq('user_id', user.id)
-        .order('created_at', { ascending: false })
-        .limit(1);
+        .eq('activity_date', today)
+        .maybeSingle();
 
-      if (error) {
-        console.error('Error checking water intake:', error);
-        return;
+      if (error) throw error;
+
+      // If no water intake today and it's past 10 AM, send a reminder
+      const currentHour = new Date().getHours();
+      if ((!data || !data.water_intake_ml) && currentHour >= 10) {
+        await createWaterReminderNotification(user.id);
       }
 
-      const lastActivity = data?.[0];
-      if (lastActivity) {
-        const lastIntakeDate = new Date(lastActivity.created_at).toISOString().split('T')[0];
-        setLastWaterIntakeDate(lastIntakeDate);
-        setShowWaterReminder(lastIntakeDate !== today);
-      } else {
-        // No previous water intake found
-        setLastWaterIntakeDate(null);
-        setShowWaterReminder(true);
-      }
+      setWaterIntake(data?.water_intake_ml || 0);
+      setLastWaterIntakeDate(today);
     } catch (error) {
-      console.error('Error:', error);
+      console.error('Error checking water intake:', error);
     }
   };
 
@@ -309,10 +402,38 @@ const HomeScreen = () => {
   }, []);
 
   useEffect(() => {
-    fetchProfile();
-    fetchUserActivities();
-    fetchTodayWorkout();
-    checkWaterIntake();
+    const loadInitialData = async () => {
+      await fetchProfile();
+      await fetchUserActivities();
+      await fetchTodayWorkout();
+      await checkWaterIntake();
+    };
+
+    loadInitialData();
+
+    // Check for workouts every 2 minutes
+    const workoutInterval = setInterval(() => {
+      fetchTodayWorkout();
+    }, 2 * 60 * 1000);
+
+    // Check water intake every 30 minutes
+    const waterInterval = setInterval(() => {
+      checkWaterIntake();
+    }, 30 * 60 * 1000);
+
+    // Reset notification flags at midnight
+    const midnightCheck = setInterval(() => {
+      const now = new Date();
+      if (now.getHours() === 0 && now.getMinutes() === 0) {
+        fetchTodayWorkout();
+      }
+    }, 60 * 1000); // Check every minute for midnight
+
+    return () => {
+      clearInterval(workoutInterval);
+      clearInterval(waterInterval);
+      clearInterval(midnightCheck);
+    };
   }, []);
 
   // -------------------------------------
@@ -362,7 +483,7 @@ const HomeScreen = () => {
       if (!user) return;
 
       const today = new Date().toISOString().split('T')[0];
-      
+
       const { error } = await supabase
         .from('wellness_checks')
         .insert([
@@ -397,7 +518,13 @@ const HomeScreen = () => {
           <Text style={styles.welcomeText}>Welcome Back,</Text>
           <Text style={styles.userName}>{profile.name}</Text>
         </View>
-        <TouchableOpacity style={styles.notificationButton} onPress={triggerHaptic}>
+        <TouchableOpacity 
+          style={styles.notificationButton} 
+          onPress={() => {
+            triggerHaptic();
+            router.push('/notifications');
+          }}
+        >
           <Ionicons name="notifications-outline" size={24} color="#000" />
         </TouchableOpacity>
       </View>
@@ -410,7 +537,7 @@ const HomeScreen = () => {
 
         <View style={styles.targetContent}>
           {todayWorkout && (
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.todayWorkoutCard}
               onPress={() => router.push(`/workout/${todayWorkout.id}`)}
             >
@@ -421,7 +548,7 @@ const HomeScreen = () => {
                 end={{ x: 1, y: 1 }}
               >
                 {todayWorkout.icon && (
-                  <Image 
+                  <Image
                     source={{ uri: todayWorkout.icon }}
                     style={styles.workoutCardImage}
                   />
@@ -439,7 +566,7 @@ const HomeScreen = () => {
             </TouchableOpacity>
           )}
 
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.reminderCard}
             onPress={() => router.push('/wellness')}
           >
@@ -645,11 +772,6 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#333',
   },
-  notificationButton: {
-    backgroundColor: '#F5F7FF',
-    padding: 10,
-    borderRadius: 10,
-  },
   targetSection: {
     padding: 20,
     backgroundColor: '#fff',
@@ -840,7 +962,8 @@ const styles = StyleSheet.create({
   heartRateValue: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#6B8CFF',
+    color: '#333',
+    marginBottom: 10,
   },
   chartContainer: {
     marginTop: 16,
@@ -999,6 +1122,11 @@ const styles = StyleSheet.create({
   buttonText: {
     color: 'white',
     fontWeight: 'bold',
+  },
+  notificationButton: {
+    backgroundColor: '#F5F7FF',
+    padding: 10,
+    borderRadius: 10,
   },
 });
 
