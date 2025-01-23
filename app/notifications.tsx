@@ -26,8 +26,6 @@ type Notification = {
   message: string;
   read: boolean;
   created_at: string;
-  image_url?: string;
-  sender_name?: string;
 };
 
 export default function NotificationsScreen() {
@@ -46,7 +44,7 @@ export default function NotificationsScreen() {
 
       const { data, error } = await supabase
         .from('notifications')
-        .select('*')
+        .select('id, user_id, type, message, read, created_at')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
@@ -258,63 +256,28 @@ export default function NotificationsScreen() {
                   style={[
                     styles.notificationItem,
                     !notification.read && styles.unreadNotification,
-                    notification.type === 'andree-workout' && styles.andreeNotification
                   ]}
                   onPress={() => markAsRead(notification.id)}
                 >
-                  {notification.type === 'andree-workout' ? (
-                    <LinearGradient
-                      colors={['#FF6B9C', '#FF8FAF']}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 1 }}
-                      style={styles.andreeGradient}
-                    >
-                      <View style={styles.andreeContent}>
-                        <View style={styles.andreeHeader}>
-                          <Image
-                            source={require('../assets/images/andree.jpg')}
-                            style={styles.profileImage}
-                          />
-                          <View style={styles.andreeHeaderText}>
-                            <Text style={styles.andreeTitle}>
-                              {notification.sender_name} <Text style={styles.andreeEmoji}>👋</Text>
-                            </Text>
-                            <Text style={styles.andreeTime}>
-                              {getRelativeTime(notification.created_at)}
-                            </Text>
-                          </View>
-                        </View>
-                        <Text style={styles.andreeMessage}>
-                          {notification.message}
-                        </Text>
-                      </View>
-                    </LinearGradient>
-                  ) : (
-                    <>
-                      <View style={styles.notificationIcon}>
-                        <Ionicons
-                          name={getNotificationIcon(notification.type)}
-                          size={24}
-                          color="#007AFF"
-                        />
-                      </View>
-                      <View style={styles.notificationContent}>
-                        <Text style={styles.notificationTitle}>
-                          {notification.type.charAt(0).toUpperCase() + notification.type.slice(1)} Notification
-                        </Text>
-                        <Text style={styles.notificationMessage}>
-                          {notification.message}
-                        </Text>
-                        <Text style={styles.notificationTime}>
-                          {getRelativeTime(notification.created_at)}
-                        </Text>
-                      </View>
-                    </>
-                  )}
-                  {!notification.read && <View style={[
-                    styles.unreadDot,
-                    notification.type === 'andree-workout' && styles.andreeUnreadDot
-                  ]} />}
+                  <View style={styles.notificationIcon}>
+                    <Ionicons
+                      name={getNotificationIcon(notification.type)}
+                      size={24}
+                      color="#007AFF"
+                    />
+                  </View>
+                  <View style={styles.notificationContent}>
+                    <Text style={styles.notificationTitle}>
+                      {notification.type.charAt(0).toUpperCase() + notification.type.slice(1)} Notification
+                    </Text>
+                    <Text style={styles.notificationMessage}>
+                      {notification.message}
+                    </Text>
+                    <Text style={styles.notificationTime}>
+                      {getRelativeTime(notification.created_at)}
+                    </Text>
+                  </View>
+                  {!notification.read && <View style={styles.unreadDot} />}
                 </TouchableOpacity>
               </Swipeable>
             ))}
@@ -432,67 +395,5 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 13,
     marginTop: 4,
-  },
-  profileImage: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    borderWidth: 2,
-    borderColor: '#fff',
-  },
-  andreeGradient: {
-    flex: 1,
-    borderRadius: 12,
-    overflow: 'hidden',
-  },
-  andreeContent: {
-    padding: 16,
-  },
-  andreeHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  andreeHeaderText: {
-    marginLeft: 12,
-    flex: 1,
-  },
-  andreeTitle: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: '700',
-  },
-  andreeEmoji: {
-    fontSize: 16,
-  },
-  andreeMessage: {
-    color: '#fff',
-    fontSize: 15,
-    lineHeight: 22,
-    marginTop: 8,
-  },
-  andreeTime: {
-    color: '#fff',
-    opacity: 0.8,
-    fontSize: 12,
-    marginTop: 2,
-  },
-  andreeNotification: {
-    backgroundColor: 'transparent',
-    borderLeftWidth: 0,
-    marginHorizontal: 16,
-    marginVertical: 8,
-    borderRadius: 12,
-    shadowColor: '#FF6B9C',
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 5,
-  },
-  andreeUnreadDot: {
-    backgroundColor: '#FF6B9C',
   },
 });

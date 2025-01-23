@@ -319,11 +319,10 @@ export function UserDetailPage() {
 
   const sendMessage = async () => {
     try {
-      // Insert into notifications table and send browser notification
-      await notificationService.sendNotificationToUser(userId!, {
+      // Send trainer message notification
+      await notificationService.sendTrainerMessage(userId!, {
         title: "Neue Nachricht von deinem Trainer 💪",
-        body: message,
-        icon: "/favicon.ico"
+        body: message
       });
 
       // Show success toast to admin
@@ -339,8 +338,8 @@ export function UserDetailPage() {
       toast({
         title: "Fehler",
         description: "Die Nachricht konnte nicht gesendet werden. Bitte versuche es erneut.",
-        duration: 3000,
         variant: "destructive",
+        duration: 3000,
       });
     }
   };

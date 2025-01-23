@@ -5,6 +5,7 @@ import { supabase } from '../../lib/supabase';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as DocumentPicker from 'expo-document-picker';
+import DateTimePicker from '@react-native-community/datetimepicker';
 
 interface Exercise {
     id: string;
@@ -26,7 +27,7 @@ interface Workout {
     description: string;
     exercise_count: number;
     calories_burned: number;
-    schedule_time?: string;
+    assigned_date?: string;
     exercises?: Exercise[];
     icon?: string;
 }
@@ -47,6 +48,7 @@ export default function EditWorkout() {
         video_url: '',
         set_number: 1
     });
+    const [showTimePicker, setShowTimePicker] = useState(false);
 
     useEffect(() => {
         if (workoutId) {
@@ -258,7 +260,8 @@ export default function EditWorkout() {
                     difficulty: workout.difficulty,
                     duration: workout.duration,
                     description: workout.description,
-                    icon: workout.icon
+                    icon: workout.icon,
+                    assigned_date: workout.assigned_date
                 })
                 .eq('id', workoutId);
 
@@ -476,6 +479,36 @@ export default function EditWorkout() {
                                 placeholder="Workout Typ"
                             />
                         </View>
+
+                        <View style={styles.inputGroup}>
+                            <Text style={styles.label}>Geplante Zeit</Text>
+                            <TouchableOpacity
+                                style={styles.timePickerButton}
+                                onPress={() => setShowTimePicker(true)}
+                            >
+                                <Text style={styles.timePickerButtonText}>
+                                    {workout?.assigned_date ? new Date(workout.assigned_date).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }) : 'Zeit auswählen'}
+                                </Text>
+                            </TouchableOpacity>
+                        </View>
+
+                        {showTimePicker && (
+                            <DateTimePicker
+                                value={workout?.assigned_date ? new Date(workout.assigned_date) : new Date()}
+                                mode="time"
+                                is24Hour={true}
+                                display="default"
+                                onChange={(event, selectedDate) => {
+                                    setShowTimePicker(false);
+                                    if (selectedDate && event.type === 'set') {
+                                        setWorkout(prev => prev ? {
+                                            ...prev,
+                                            assigned_date: selectedDate.toISOString()
+                                        } : null);
+                                    }
+                                }}
+                            />
+                        )}
                     </View>
 
                     {/* Exercises List */}
@@ -890,5 +923,15 @@ const styles = StyleSheet.create({
     },
     imageUploadButton: {
         marginTop: 10,
+    },
+    timePickerButton: {
+        backgroundColor: '#F7F8F8',
+        padding: 15,
+        borderRadius: 14,
+        marginTop: 8,
+    },
+    timePickerButtonText: {
+        color: '#1D1617',
+        fontSize: 14,
     },
 });

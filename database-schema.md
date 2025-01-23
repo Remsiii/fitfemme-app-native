@@ -85,10 +85,7 @@ User notifications
 | type | varchar | Notification type (workout, water, period, andree-workout, system) |
 | message | text | Notification message |
 | read | bool | Read status |
-| image_url | text | Optional image URL for notification |
-| sender_name | varchar | Optional sender name (e.g., 'Andree') |
 | created_at | timestamp | Creation timestamp |
-| updated_at | timestamp | Last update timestamp |
 
 ### workouts
 Workout definitions

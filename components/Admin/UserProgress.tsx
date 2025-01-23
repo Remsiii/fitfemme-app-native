@@ -135,11 +135,10 @@ export default function UserProgress() {
         try {
             // Your existing completion logic here
             
-            // Send browser notification
-            await notificationService.sendNotification({
+            // Send workout notification
+            await notificationService.sendWorkoutNotification(userId, {
                 title: "Workout Completed! 🎉",
-                body: "Great job! You've completed your workout.",
-                icon: "/favicon.ico" // Make sure you have a favicon or other icon
+                body: "Great job! You've completed your workout."
             });
             
             // Refresh the user list

@@ -21,7 +21,7 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
 
       const { count, error } = await supabase
         .from('notifications')
-        .select('*', { count: 'exact', head: true })
+        .select('id, user_id, type, message, read, sender_name, created_at', { count: 'exact', head: true })
         .eq('user_id', user.id)
         .eq('read', false);
 

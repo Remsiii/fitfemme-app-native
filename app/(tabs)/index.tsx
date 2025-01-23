@@ -171,10 +171,10 @@ const HomeScreen = () => {
         const lastPeriodStart = new Date(periodData.period_start_date);
         const nextPeriodStart = new Date(lastPeriodStart);
         nextPeriodStart.setDate(nextPeriodStart.getDate() + (periodData.cycle_length || 28));
-        
+
         const today = new Date();
         const daysUntilNextPeriod = Math.ceil((nextPeriodStart.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-        
+
         // Send notification 3 days before next period
         if (daysUntilNextPeriod <= 3 && daysUntilNextPeriod > 0) {
           await createPeriodNotification(user.id, daysUntilNextPeriod);
@@ -218,25 +218,25 @@ const HomeScreen = () => {
 
       if (data?.workout) {
         setTodayWorkout(data.workout);
-        
+
         // Only send notification if it hasn't been sent yet or if retries are available
         const maxRetries = 3;
         const retryCount = data.notification_retry_count || 0;
-        
+
         if (!data.notification_sent && retryCount < maxRetries) {
           // Format time for notification
           const scheduledTime = data.scheduled_time || '09:00:00';
           const [hours, minutes] = scheduledTime.split(':');
-          
+
           // Create date object for scheduled time today
           const timeDate = new Date();
           timeDate.setHours(parseInt(hours), parseInt(minutes), 0, 0);
-          
+
           // Format time in user's locale
-          const formattedTime = timeDate.toLocaleTimeString(undefined, { 
-            hour: 'numeric', 
+          const formattedTime = timeDate.toLocaleTimeString(undefined, {
+            hour: 'numeric',
             minute: '2-digit',
-            hour12: true 
+            hour12: true
           });
 
           // Send Andree's workout notification if it's 30 minutes before the scheduled time
@@ -247,18 +247,18 @@ const HomeScreen = () => {
           // Only send if workout is within the next 30 minutes and hasn't started yet
           if (minutesUntilWorkout <= 30 && minutesUntilWorkout > 0) {
             const notificationSent = await createWorkoutNotification(
-              user.id, 
-              data.workout.name, 
+              user.id,
+              data.workout.name,
               formattedTime,
               data.workout.duration,
               data.workout.difficulty
             );
-            
+
             if (notificationSent) {
               // Mark notification as sent
               await supabase
                 .from('assigned_workouts')
-                .update({ 
+                .update({
                   notification_sent: true,
                   notification_retry_count: retryCount + 1,
                   updated_at: new Date().toISOString()
@@ -268,7 +268,7 @@ const HomeScreen = () => {
               // Update retry count on failure
               await supabase
                 .from('assigned_workouts')
-                .update({ 
+                .update({
                   notification_retry_count: retryCount + 1,
                   updated_at: new Date().toISOString()
                 })
@@ -282,7 +282,7 @@ const HomeScreen = () => {
         if (now.getHours() === 0 && now.getMinutes() === 0) {
           await supabase
             .from('assigned_workouts')
-            .update({ 
+            .update({
               notification_sent: false,
               notification_retry_count: 0,
               updated_at: new Date().toISOString()
@@ -518,8 +518,8 @@ const HomeScreen = () => {
           <Text style={styles.welcomeText}>Welcome Back,</Text>
           <Text style={styles.userName}>{profile.name}</Text>
         </View>
-        <TouchableOpacity 
-          style={styles.notificationButton} 
+        <TouchableOpacity
+          style={styles.notificationButton}
           onPress={() => {
             triggerHaptic();
             router.push('/notifications');
@@ -579,6 +579,7 @@ const HomeScreen = () => {
               <View style={styles.reminderIconContainer}>
                 <Ionicons name="flower" size={24} color="#fff" />
               </View>
+
               <View style={styles.reminderContent}>
                 <Text style={styles.reminderTitle}>Track Your Wellness 🌸</Text>
                 <Text style={styles.reminderText}>
@@ -604,9 +605,9 @@ const HomeScreen = () => {
           </View>
           <View style={styles.chartContainer}>
             <LineChart
+              height={100}
               data={heartRateData}
               width={screenWidth - 80}
-              height={100}
               chartConfig={{
                 decimalPlaces: 0,
                 backgroundGradientFrom: '#F5F7FF',

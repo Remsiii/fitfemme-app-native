@@ -46,7 +46,7 @@ const Profile = () => {
     const [profile, setProfile] = useState<{
         full_name: string;
         email: string;
-        avatar_url: string;
+        profile_picture_url: string;
         age: string | number;
         weight: string | number;
         height: string | number;
@@ -55,7 +55,7 @@ const Profile = () => {
     }>({
         full_name: "New User",
         email: "",
-        avatar_url: "",
+        profile_picture_url: "",
         age: "N/A",
         weight: "N/A",
         height: "N/A",
@@ -116,7 +116,7 @@ const Profile = () => {
             setProfile({
                 full_name: data.full_name || "New User",
                 email: data.email || "",
-                avatar_url: data.avatar_url || "",
+                profile_picture_url: data.profile_picture_url || "",
                 age: age || "N/A",
                 weight: data.weight ? `${data.weight} kg` : "N/A",
                 height: data.height ? `${data.height} cm` : "N/A",
@@ -132,7 +132,7 @@ const Profile = () => {
         }
     };
 
-    const pickImage = async () => {
+    const handleImageUpload = async () => {
         try {
             const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
             if (status !== 'granted') {
@@ -144,51 +144,47 @@ const Profile = () => {
                 mediaTypes: ImagePicker.MediaTypeOptions.Images,
                 allowsEditing: true,
                 aspect: [1, 1],
-                quality: 0.5,
+                quality: 0.8,
                 base64: true,
             });
 
             if (!result.canceled && result.assets[0].base64) {
                 setIsLoading(true);
+
                 const { data: { user } } = await supabase.auth.getUser();
-                if (!user) throw new Error('No user found');
+                if (!user) return;
 
                 const filePath = `${user.id}/${new Date().getTime()}.jpg`;
                 const contentType = 'image/jpeg';
 
-                // Upload image to Supabase Storage
                 const { error: uploadError } = await supabase.storage
                     .from('user_photos')
                     .upload(filePath, decode(result.assets[0].base64), {
                         contentType,
-                        upsert: true
+                        upsert: true,
                     });
 
                 if (uploadError) throw uploadError;
 
-                // Get public URL
                 const { data: { publicUrl } } = supabase.storage
                     .from('user_photos')
                     .getPublicUrl(filePath);
 
-                // Update user profile with the new avatar URL
+                // Update the user's profile_picture_url
                 const { error: updateError } = await supabase
                     .from('users')
-                    .update({ avatar_url: publicUrl })
-                    .eq('id', user.id)
-                    .select();
+                    .update({ profile_picture_url: publicUrl })
+                    .eq('id', user.id);
 
                 if (updateError) throw updateError;
 
-                setProfile(prev => ({
-                    ...prev,
-                    avatar_url: publicUrl
-                }));
+                // Update local state
+                setProfile(prev => prev ? { ...prev, profile_picture_url: publicUrl } : null);
+                setIsLoading(false);
             }
         } catch (error) {
             console.error('Error uploading image:', error);
-            Alert.alert('Error', 'Failed to upload image. Please try again.');
-        } finally {
+            Alert.alert('Error', 'Failed to upload image');
             setIsLoading(false);
         }
     };
@@ -202,7 +198,7 @@ const Profile = () => {
             // Update user profile with selected avatar
             const { error: updateError } = await supabase
                 .from('users')
-                .update({ avatar_url: avatar.source })
+                .update({ profile_picture_url: avatar.source })
                 .eq('id', user.id)
                 .select();
 
@@ -210,7 +206,7 @@ const Profile = () => {
 
             setProfile(prev => ({
                 ...prev,
-                avatar_url: avatar.source
+                profile_picture_url: avatar.source
             }));
 
             setShowAvatarModal(false);
@@ -301,28 +297,24 @@ const Profile = () => {
             </View>
             {renderMenu()}
             <View style={styles.profileSection}>
-                <TouchableOpacity onPress={() => setShowAvatarModal(true)} style={styles.avatarContainer}>
-                    {profile.avatar_url ? (
-                        profile.avatar_url.startsWith('http') ? (
-                            <Image
-                                source={{ uri: profile.avatar_url }}
-                                style={styles.avatar}
-                            />
-                        ) : (
-                            <Image
-                                source={predefinedAvatars.find(a => a.id === profile.avatar_url)?.source || predefinedAvatars[0].source}
-                                style={styles.avatar}
-                            />
-                        )
-                    ) : (
+                <TouchableOpacity onPress={handleImageUpload} disabled={isLoading}>
+                    {profile.profile_picture_url ? (
                         <Image
-                            source={predefinedAvatars[0].source}
+                            source={{ uri: profile.profile_picture_url }}
                             style={styles.avatar}
                         />
+                    ) : (
+                        <View style={[styles.avatar, styles.placeholderAvatar]}>
+                            <Text style={styles.avatarText}>
+                                {profile.full_name?.charAt(0) || 'U'}
+                            </Text>
+                        </View>
                     )}
-                    <View style={styles.editIconContainer}>
-                        <Ionicons name="pencil" size={14} color="white" />
-                    </View>
+                    {isLoading && (
+                        <View style={styles.loadingOverlay}>
+                            <ActivityIndicator size="small" color="#ffffff" />
+                        </View>
+                    )}
                 </TouchableOpacity>
                 <Text style={styles.name}>{profile.full_name}</Text>
                 <Text style={styles.program}>{profile.goal}</Text>
@@ -428,7 +420,7 @@ const Profile = () => {
                             style={styles.uploadButton}
                             onPress={() => {
                                 setShowAvatarModal(false);
-                                pickImage();
+                                handleImageUpload();
                             }}
                         >
                             <Ionicons name="image" size={24} color="white" style={styles.uploadIcon} />
@@ -679,6 +671,26 @@ const styles = StyleSheet.create({
     cancelButtonText: {
         color: '#666',
         fontSize: 16,
+    },
+    placeholderAvatar: {
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: '#f0f0f0',
+    },
+    avatarText: {
+        fontSize: 24,
+        fontWeight: 'bold',
+        color: '#333',
+    },
+    loadingOverlay: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: 'rgba(0, 0, 0, 0.5)',
     },
 });
 
