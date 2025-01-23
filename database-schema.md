@@ -123,12 +123,9 @@ Workouts assigned to users
 | user_id | uuid | Foreign key to users |
 | workout_id | int4 | Foreign key to workouts |
 | assigned_date | date | Date workout is assigned |
-| scheduled_time | time | Time workout is scheduled for |
 | completed | bool | Whether workout is completed |
-| notification_sent | bool | Whether notification has been sent |
-| notification_retry_count | int2 | Number of notification send attempts |
 | created_at | timestamp | Record creation time |
-| updated_at | timestamp | Last update time |
+
 
 ### workout_history
 User workout completion history
