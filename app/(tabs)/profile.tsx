@@ -117,7 +117,7 @@ const Profile = () => {
                 full_name: data.full_name || "New User",
                 email: data.email || "",
                 avatar_url: data.avatar_url || "",
-                age: age,
+                age: age || "N/A",
                 weight: data.weight ? `${data.weight} kg` : "N/A",
                 height: data.height ? `${data.height} cm` : "N/A",
                 goal: data.fitness_goal || "No specific goal",
@@ -155,7 +155,7 @@ const Profile = () => {
 
                 const filePath = `${user.id}/${new Date().getTime()}.jpg`;
                 const contentType = 'image/jpeg';
-                
+
                 // Upload image to Supabase Storage
                 const { error: uploadError } = await supabase.storage
                     .from('user_photos')
@@ -193,7 +193,7 @@ const Profile = () => {
         }
     };
 
-    const selectPredefinedAvatar = async (avatar) => {
+    const selectPredefinedAvatar = async (avatar: { id?: string; source: any; }) => {
         try {
             setIsLoading(true);
             const { data: { user } } = await supabase.auth.getUser();
@@ -265,9 +265,16 @@ const Profile = () => {
             <View style={styles.menuContainer}>
                 <TouchableOpacity
                     style={styles.dropdownMenuItem}
-                    onPress={() => {
+                    onPress={async () => {
                         setShowMenu(false);
-                        handleLogoutPress();
+                        try {
+                            const { error } = await supabase.auth.signOut();
+                            if (error) throw error;
+                            router.replace('/(auth)/login');
+                        } catch (error) {
+                            console.error('Error during logout:', error);
+                            Alert.alert('Error', 'Failed to logout. Please try again.');
+                        }
                     }}>
                     <Ionicons name="log-out-outline" size={20} color="#FF0000" />
                     <Text style={[styles.menuItemText, { color: '#FF0000' }]}>Logout</Text>
