@@ -126,7 +126,6 @@ Workouts assigned to users
 | completed | bool | Whether workout is completed |
 | created_at | timestamp | Record creation time |
 
-
 ### workout_history
 User workout completion history
 | Column | Type | Description |
@@ -155,6 +154,18 @@ Equipment needed for workouts
 | workout_id | int4 | Foreign key to workouts |
 | equipment_id | int4 | Foreign key to equipment |
 
+### weight_tracking
+User weight tracking history
+| Column | Type | Description |
+|--------|------|-------------|
+| id | uuid | Primary key |
+| user_id | uuid | Foreign key to users |
+| weight | float8 | Weight in kg |
+| date | date | Date of weight measurement |
+| notes | text | Optional notes |
+| created_at | timestamp | Record creation time |
+| updated_at | timestamp | Last update time |
+
 ## Relationships
 - users.id -> user_activities.user_id
 - users.id -> period_tracking.user_id
@@ -168,6 +179,7 @@ Equipment needed for workouts
 - users.id -> assigned_workouts.user_id
 - users.id -> workout_history.user_id
 - users.id -> notifications.user_id
+- users.id -> weight_tracking.user_id
 
 ## Notes
 - All timestamps are in UTC

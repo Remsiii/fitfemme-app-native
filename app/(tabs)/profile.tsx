@@ -10,12 +10,11 @@ import {
     Switch,
     Alert,
     Modal,
-    FlatList,
 } from "react-native";
 import * as ImagePicker from 'expo-image-picker';
 import { decode } from 'base64-arraybuffer';
 import { useRouter } from "expo-router";
-import { useNavigation, useFocusEffect } from "@react-navigation/native";
+import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { supabase } from "@/lib/supabase";
 import { Ionicons } from '@expo/vector-icons';
@@ -40,7 +39,6 @@ const Profile = () => {
     const router = useRouter();
     const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
     const [isLoading, setIsLoading] = useState(true);
-    const [showMenu, setShowMenu] = useState(false);
     const [isAdmin, setIsAdmin] = useState(false);
     const { isLoading: authLoading, isAuthenticated, handleLogout } = useAuthProtection();
     const [profile, setProfile] = useState<{
@@ -99,7 +97,7 @@ const Profile = () => {
             if (userError) throw userError;
 
             if (!user) {
-                throw new Error('No authenticated user found');
+                throw new Error('Kein authentifizierter User gefunden.');
             }
 
             const { data, error } = await supabase
@@ -110,7 +108,6 @@ const Profile = () => {
 
             if (error) throw error;
 
-            // Calculate age from birth_date
             const age = data.birth_date ? calculateAge(data.birth_date) : "N/A";
 
             setProfile({
@@ -126,7 +123,7 @@ const Profile = () => {
 
             setIsAdmin(data.is_admin || false);
         } catch (error) {
-            console.error('Error fetching profile:', error);
+            console.error('Fehler beim Laden des Profils:', error);
         } finally {
             setIsLoading(false);
         }
@@ -136,7 +133,7 @@ const Profile = () => {
         try {
             const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
             if (status !== 'granted') {
-                Alert.alert('Sorry, we need camera roll permissions to make this work!');
+                Alert.alert('Entschuldigung, wir benötigen Kamera-/Bibliothekszugriff.');
                 return;
             }
 
@@ -170,7 +167,6 @@ const Profile = () => {
                     .from('user_photos')
                     .getPublicUrl(filePath);
 
-                // Update the user's profile_picture_url
                 const { error: updateError } = await supabase
                     .from('users')
                     .update({ profile_picture_url: publicUrl })
@@ -178,13 +174,12 @@ const Profile = () => {
 
                 if (updateError) throw updateError;
 
-                // Update local state
                 setProfile(prev => prev ? { ...prev, profile_picture_url: publicUrl } : null);
                 setIsLoading(false);
             }
         } catch (error) {
-            console.error('Error uploading image:', error);
-            Alert.alert('Error', 'Failed to upload image');
+            console.error('Fehler beim Hochladen des Bildes:', error);
+            Alert.alert('Fehler', 'Bild konnte nicht hochgeladen werden.');
             setIsLoading(false);
         }
     };
@@ -193,9 +188,9 @@ const Profile = () => {
         try {
             setIsLoading(true);
             const { data: { user } } = await supabase.auth.getUser();
-            if (!user) throw new Error('No user found');
+            if (!user) throw new Error('Kein User gefunden.');
 
-            // Update user profile with selected avatar
+            // Avatar in der Datenbank aktualisieren
             const { error: updateError } = await supabase
                 .from('users')
                 .update({ profile_picture_url: avatar.source })
@@ -211,31 +206,19 @@ const Profile = () => {
 
             setShowAvatarModal(false);
         } catch (error) {
-            console.error('Error updating avatar:', error);
-            Alert.alert('Error', 'Failed to update avatar. Please try again.');
+            console.error('Fehler beim Aktualisieren des Avatars:', error);
+            Alert.alert('Fehler', 'Avatar konnte nicht aktualisiert werden.');
         } finally {
             setIsLoading(false);
         }
     };
 
-    if (authLoading || isLoading) {
-        return (
-            <View style={styles.loadingContainer}>
-                <ActivityIndicator size="large" color="#7C9EFF" />
-            </View>
-        );
-    }
-
     const handleLogoutPress = () => {
         Alert.alert(
             "Logout",
-            "Are you sure you want to logout?",
+            "Möchtest du dich wirklich abmelden?",
             [
-
-                {
-                    text: "Cancel",
-                    style: "cancel"
-                },
+                { text: "Abbrechen", style: "cancel" },
                 {
                     text: "Logout",
                     onPress: handleLogout,
@@ -245,40 +228,7 @@ const Profile = () => {
         );
     };
 
-    const renderThreeDotsMenu = () => {
-        return (
-            <TouchableOpacity
-                style={styles.menuButton}
-                onPress={() => setShowMenu(!showMenu)}>
-                <Ionicons name="ellipsis-vertical" size={24} color="#000" />
-            </TouchableOpacity>
-        );
-    };
-
-    const renderMenu = () => {
-        if (!showMenu) return null;
-        return (
-            <View style={styles.menuContainer}>
-                <TouchableOpacity
-                    style={styles.dropdownMenuItem}
-                    onPress={async () => {
-                        setShowMenu(false);
-                        try {
-                            const { error } = await supabase.auth.signOut();
-                            if (error) throw error;
-                            router.replace('/(auth)/login');
-                        } catch (error) {
-                            console.error('Error during logout:', error);
-                            Alert.alert('Error', 'Failed to logout. Please try again.');
-                        }
-                    }}>
-                    <Ionicons name="log-out-outline" size={20} color="#FF0000" />
-                    <Text style={[styles.menuItemText, { color: '#FF0000' }]}>Logout</Text>
-                </TouchableOpacity>
-            </View>
-        );
-    };
-
+    // Kleiner Helfer, um Navigations-Links als Komponente zu kapseln
     const MenuLink = ({ icon, title, onPress }: { icon: string, title: string, onPress: () => void }) => (
         <TouchableOpacity style={styles.menuItem} onPress={onPress}>
             <View style={styles.menuItemLeft}>
@@ -289,13 +239,23 @@ const Profile = () => {
         </TouchableOpacity>
     );
 
+    if (authLoading || isLoading) {
+        return (
+            <View style={styles.loadingContainer}>
+                <ActivityIndicator size="large" color="#7C9EFF" />
+            </View>
+        );
+    }
+
     return (
         <ScrollView style={styles.container}>
+
+            {/* Header */}
             <View style={styles.header}>
-                {/* <Text style={styles.headerTitle}>Profile</Text> */}
-                {renderThreeDotsMenu()}
+                <Text style={styles.headerTitle}>Profil</Text>
             </View>
-            {renderMenu()}
+
+            {/* Profil-Bereich */}
             <View style={styles.profileSection}>
                 <TouchableOpacity onPress={handleImageUpload} disabled={isLoading}>
                     {profile.profile_picture_url ? (
@@ -322,39 +282,42 @@ const Profile = () => {
                     style={styles.editButton}
                     onPress={() => router.push('/edit-profile')}
                 >
-                    <Text style={styles.editButtonText}>Edit</Text>
+                    <Text style={styles.editButtonText}>Bearbeiten</Text>
                 </TouchableOpacity>
 
+                {/* Statistiken */}
                 <View style={styles.statsContainer}>
                     <View style={styles.statItem}>
                         <Text style={styles.statValue}>{profile.height}</Text>
-                        <Text style={styles.statLabel}>Height</Text>
+                        <Text style={styles.statLabel}>Größe</Text>
                     </View>
                     <View style={styles.statItem}>
                         <Text style={styles.statValue}>{profile.weight}</Text>
-                        <Text style={styles.statLabel}>Weight</Text>
+                        <Text style={styles.statLabel}>Gewicht</Text>
                     </View>
                     <View style={styles.statItem}>
                         <Text style={styles.statValue}>{profile.age}</Text>
-                        <Text style={styles.statLabel}>Age</Text>
+                        <Text style={styles.statLabel}>Alter</Text>
                     </View>
                 </View>
             </View>
 
+            {/* Account-Einstellungen */}
             <View style={styles.section}>
                 <Text style={styles.sectionTitle}>Account</Text>
-                <MenuLink icon="person-outline" title="Personal Data" onPress={() => navigation.navigate("PersonalData")} />
-                <MenuLink icon="trophy-outline" title="Achievement" onPress={() => navigation.navigate("Achievement")} />
-                <MenuLink icon="time-outline" title="Activity History" onPress={() => navigation.navigate("ActivityHistory")} />
-                <MenuLink icon="fitness-outline" title="Workout Progress" onPress={() => navigation.navigate("WorkoutProgress")} />
+                <MenuLink icon="person-outline" title="Persönliche Daten" onPress={() => navigation.navigate("PersonalData")} />
+                <MenuLink icon="trophy-outline" title="Erfolge" onPress={() => navigation.navigate("Achievement")} />
+                <MenuLink icon="time-outline" title="Aktivitäten" onPress={() => navigation.navigate("ActivityHistory")} />
+                <MenuLink icon="fitness-outline" title="Trainings-Fortschritt" onPress={() => navigation.navigate("WorkoutProgress")} />
             </View>
 
+            {/* Notifications */}
             <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Notification</Text>
+                <Text style={styles.sectionTitle}>Benachrichtigungen</Text>
                 <View style={styles.menuItem}>
                     <View style={styles.menuItemLeft}>
                         <Ionicons name="notifications-outline" size={24} color="#666" style={styles.menuIcon} />
-                        <Text style={styles.menuText}>Pop-up Notification</Text>
+                        <Text style={styles.menuText}>Pop-up Nachrichten</Text>
                     </View>
                     <Switch
                         value={notificationsEnabled}
@@ -366,7 +329,7 @@ const Profile = () => {
                 <View style={styles.menuItem}>
                     <View style={styles.menuItemLeft}>
                         <Ionicons name="notifications-outline" size={24} color="#666" style={styles.menuIcon} />
-                        <Text style={styles.menuText}>Haptic Feedback</Text>
+                        <Text style={styles.menuText}>Haptisches Feedback</Text>
                     </View>
                     <Switch
                         value={hapticEnabled}
@@ -377,8 +340,9 @@ const Profile = () => {
                 </View>
             </View>
 
+            {/* Menü-Sektion */}
             <View style={styles.menuSection}>
-                <Text style={styles.sectionTitle}>Menu</Text>
+                <Text style={styles.sectionTitle}>Menü</Text>
                 {isAdmin && (
                     <TouchableOpacity
                         style={styles.menuItem}
@@ -386,16 +350,25 @@ const Profile = () => {
                     >
                         <View style={styles.menuItemContent}>
                             <Ionicons name="settings-outline" size={24} color="#333" />
-                            <Text style={styles.menuItemText}>Admin Dashboard</Text>
+                            <Text style={styles.menuItemText}>Admin-Dashboard</Text>
                         </View>
                         <Ionicons name="chevron-forward" size={24} color="#666" />
                     </TouchableOpacity>
                 )}
-                <MenuLink icon="mail-outline" title="Contact Us" onPress={() => navigation.navigate("ContactUs")} />
-                <MenuLink icon="shield-outline" title="Privacy Policy" onPress={() => navigation.navigate("PrivacyPolicy")} />
-                <MenuLink icon="settings-outline" title="Settings" onPress={() => navigation.navigate("Settings")} />
+                <MenuLink icon="mail-outline" title="Kontakt" onPress={() => navigation.navigate("ContactUs")} />
+                <MenuLink icon="shield-outline" title="Datenschutz" onPress={() => navigation.navigate("PrivacyPolicy")} />
+                <MenuLink icon="settings-outline" title="Einstellungen" onPress={() => navigation.navigate("Settings")} />
+
+                {/* Logout direkt hier als letztes Menu-Item */}
+                <TouchableOpacity style={styles.menuItem} onPress={handleLogoutPress}>
+                    <View style={styles.menuItemContent}>
+                        <Ionicons name="log-out-outline" size={24} color="#FF0000" />
+                        <Text style={[styles.menuItemText, { color: '#FF0000' }]}>Logout</Text>
+                    </View>
+                </TouchableOpacity>
             </View>
 
+            {/* Modal für Avatarauswahl */}
             <Modal
                 visible={showAvatarModal}
                 transparent={true}
@@ -404,7 +377,7 @@ const Profile = () => {
             >
                 <View style={styles.modalOverlay}>
                     <View style={styles.modalContent}>
-                        <Text style={styles.modalTitle}>Choose Avatar</Text>
+                        <Text style={styles.modalTitle}>Wähle einen Avatar</Text>
                         <View style={styles.avatarGrid}>
                             {predefinedAvatars.map((avatar) => (
                                 <TouchableOpacity
@@ -424,13 +397,13 @@ const Profile = () => {
                             }}
                         >
                             <Ionicons name="image" size={24} color="white" style={styles.uploadIcon} />
-                            <Text style={styles.uploadButtonText}>Upload Custom Image</Text>
+                            <Text style={styles.uploadButtonText}>Eigenes Bild hochladen</Text>
                         </TouchableOpacity>
                         <TouchableOpacity
                             style={styles.cancelButton}
                             onPress={() => setShowAvatarModal(false)}
                         >
-                            <Text style={styles.cancelButtonText}>Cancel</Text>
+                            <Text style={styles.cancelButtonText}>Abbrechen</Text>
                         </TouchableOpacity>
                     </View>
                 </View>
@@ -442,7 +415,8 @@ const Profile = () => {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: "#F8F9FA",
+        backgroundColor: "#F5F5F5",
+        paddingBottom: 40,
     },
     loadingContainer: {
         flex: 1,
@@ -456,7 +430,12 @@ const styles = StyleSheet.create({
         alignItems: "center",
         padding: 16,
         backgroundColor: "#FFFFFF",
-        boxShadow: '0px 2px 3.84px rgba(0, 0, 0, 0.1)',
+        // kleiner Shadow-Effekt
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 3.84,
+        elevation: 2,
     },
     headerTitle: {
         fontSize: 18,
@@ -466,33 +445,39 @@ const styles = StyleSheet.create({
         backgroundColor: "#FFFFFF",
         padding: 20,
         alignItems: "center",
-        boxShadow: '0px 2px 3.84px rgba(0, 0, 0, 0.1)',
-    },
-    avatarContainer: {
-        position: 'relative',
-        width: 80,
-        height: 80,
-        alignSelf: 'center',
-        marginBottom: 12,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 3.84,
+        elevation: 2,
     },
     avatar: {
         width: 80,
         height: 80,
         borderRadius: 40,
         backgroundColor: '#f0f0f0',
+        marginBottom: 10,
     },
-    editIconContainer: {
-        position: 'absolute',
-        right: -2,
-        bottom: -2,
-        backgroundColor: '#ff758f',
-        borderRadius: 12,
-        width: 24,
-        height: 24,
+    placeholderAvatar: {
         justifyContent: 'center',
         alignItems: 'center',
-        borderWidth: 2,
-        borderColor: 'white',
+        backgroundColor: '#f0f0f0',
+    },
+    avatarText: {
+        fontSize: 24,
+        fontWeight: 'bold',
+        color: '#333',
+    },
+    loadingOverlay: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+        borderRadius: 40,
     },
     name: {
         fontSize: 20,
@@ -539,19 +524,28 @@ const styles = StyleSheet.create({
         backgroundColor: "#FFFFFF",
         marginTop: 16,
         paddingVertical: 8,
-        boxShadow: '0px 2px 3.84px rgba(0, 0, 0, 0.1)',
-    },
-    menuSection: {
-        backgroundColor: "#FFFFFF",
-        marginTop: 16,
-        paddingVertical: 8,
-        boxShadow: '0px 2px 3.84px rgba(0, 0, 0, 0.1)',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 3.84,
+        elevation: 2,
     },
     sectionTitle: {
         fontSize: 16,
         fontWeight: "600",
         paddingHorizontal: 16,
         paddingVertical: 8,
+    },
+    menuSection: {
+        backgroundColor: "#FFFFFF",
+        marginTop: 16,
+        paddingVertical: 8,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 3.84,
+        elevation: 2,
+        marginBottom: 30, // Increased bottom margin
     },
     menuItem: {
         flexDirection: "row",
@@ -578,36 +572,6 @@ const styles = StyleSheet.create({
     menuItemText: {
         marginLeft: 10,
         fontSize: 16,
-    },
-    menuButton: {
-        padding: 10,
-        position: 'absolute',
-        right: 10,
-        top: 10,
-    },
-    menuContainer: {
-        position: 'absolute',
-        right: 10,
-        top: 50,
-        backgroundColor: 'white',
-        borderRadius: 8,
-        padding: 5,
-        boxShadow: '0px 2px 3.84px rgba(0, 0, 0, 0.1)',
-        elevation: 5,
-        zIndex: 1000,
-    },
-    dropdownMenuItem: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        padding: 10,
-    },
-    logoutButton: {
-        borderTopWidth: 1,
-        borderTopColor: '#eee',
-        marginTop: 16,
-    },
-    logoutText: {
-        color: '#FF6B6B',
     },
     modalOverlay: {
         flex: 1,
@@ -671,26 +635,6 @@ const styles = StyleSheet.create({
     cancelButtonText: {
         color: '#666',
         fontSize: 16,
-    },
-    placeholderAvatar: {
-        justifyContent: 'center',
-        alignItems: 'center',
-        backgroundColor: '#f0f0f0',
-    },
-    avatarText: {
-        fontSize: 24,
-        fontWeight: 'bold',
-        color: '#333',
-    },
-    loadingOverlay: {
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        justifyContent: 'center',
-        alignItems: 'center',
-        backgroundColor: 'rgba(0, 0, 0, 0.5)',
     },
 });
 

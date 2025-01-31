@@ -75,11 +75,12 @@ export default function RootLayout() {
               headerShown: false
             }} />
             <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
-            <Stack.Screen name="notifications" options={{ 
+            <Stack.Screen name="notifications" options={{
               presentation: 'modal',
               headerTitle: 'Notifications',
               headerRight: () => <NotificationIcon />
             }} />
+            <Stack.Screen name="weight-tracker" options={{ headerShown: false }} />
           </Stack>
         </NotificationsProvider>
       </ThemeProvider>

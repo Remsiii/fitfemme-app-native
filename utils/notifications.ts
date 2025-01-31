@@ -4,10 +4,10 @@ export async function createNotification(
   userId: string,
   type: 'workout' | 'water' | 'period' | 'system' | 'andree-workout',
   message: string,
-  imageUrl?: string,
   senderName?: string
 ) {
   try {
+    // 1. Notification erstellen
     const { error } = await supabase
       .from('notifications')
       .insert([
@@ -16,25 +16,25 @@ export async function createNotification(
           type,
           message,
           read: false,
-          image_url: imageUrl,
-          sender_name: senderName,
-          updated_at: new Date().toISOString()
-        }
+        },
       ]);
 
     if (error) throw error;
-    return true;
+
+    return true; // Erfolgreich!
   } catch (error) {
     console.error('Error creating notification:', error);
-    return false;
+    return false; // Fehlgeschlagen
   }
 }
 
+
+
 // Helper functions for specific notification types
 export async function createWorkoutNotification(
-  userId: string, 
-  workoutName: string, 
-  time: string, 
+  userId: string,
+  workoutName: string,
+  time: string,
   duration?: number,
   difficulty?: string
 ) {
@@ -43,15 +43,14 @@ export async function createWorkoutNotification(
     `Ready for something special? 💫 Join me at ${time} for a fantastic ${duration ? `${duration}-minute ` : ''}${workoutName} session${difficulty ? ` at ${difficulty} level` : ''}. Let's crush our goals together! 🔥`,
     `Your ${time} workout is calling! 🎯 I've designed this ${duration ? `${duration}-minute ` : ''}${workoutName}${difficulty ? ` (${difficulty})` : ''} session just for you. Let's make today count! ✨`
   ];
-  
+
   const randomMessage = messages[Math.floor(Math.random() * messages.length)];
-  
+
   return createNotification(
     userId,
     'andree-workout',
     randomMessage,
     '/assets/images/andree.jpg',
-    'Andree'
   );
 }
 

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, ActivityIndicator } from 'react-native';
 import { Stack, router } from 'expo-router';
 import { supabase } from '../../lib/supabase';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -69,6 +69,24 @@ export default function WorkoutsScreen() {
         }
     };
 
+    const LoadingImage = ({ source, style }: { source: { uri: string }, style: any }) => {
+        const [isLoading, setIsLoading] = useState(true);
+
+        return (
+            <View style={[style, { justifyContent: 'center', alignItems: 'center' }]}>
+                <Image 
+                    source={source}
+                    style={[style, { position: isLoading ? 'absolute' : 'relative' }]}
+                    onLoadStart={() => setIsLoading(true)}
+                    onLoadEnd={() => setIsLoading(false)}
+                />
+                {isLoading && (
+                    <ActivityIndicator size="small" color="#fff" />
+                )}
+            </View>
+        );
+    };
+
     return (
         <View style={styles.container}>
             <Stack.Screen
@@ -83,7 +101,10 @@ export default function WorkoutsScreen() {
 
             <ScrollView style={styles.scrollView}>
                 {loading ? (
-                    <Text style={styles.loadingText}>Lädt Workouts...</Text>
+                    <View style={styles.loaderContainer}>
+                        <ActivityIndicator size="large" color="#92A3FD" />
+                        <Text style={styles.loadingText}>Lädt Workouts...</Text>
+                    </View>
                 ) : workouts.length === 0 ? (
                     <Text style={styles.noWorkoutsText}>Keine Workouts gefunden</Text>
                 ) : (
@@ -100,7 +121,7 @@ export default function WorkoutsScreen() {
                                 end={{ x: 1, y: 1 }}
                             >
                                 {workout.icon && (
-                                    <Image 
+                                    <LoadingImage 
                                         source={{ uri: workout.icon }}
                                         style={styles.workoutImage}
                                     />
@@ -155,9 +176,15 @@ const styles = StyleSheet.create({
     },
     loadingText: {
         textAlign: 'center',
-        marginTop: 20,
         fontSize: 16,
-        color: '#4F5E7B',
+        color: '#92A3FD',
+        marginTop: 10,
+    },
+    loaderContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        paddingTop: 50,
     },
     noWorkoutsText: {
         textAlign: 'center',

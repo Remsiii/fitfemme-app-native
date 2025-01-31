@@ -1,9 +1,13 @@
 import { useState, useEffect } from 'react';
-import { ScrollView, View, Text, TouchableOpacity, Modal, StyleSheet } from 'react-native';
+import { ScrollView, View, Text, TouchableOpacity, Modal, StyleSheet, Dimensions, Platform } from 'react-native';
 import { Stack } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { Calendar } from 'react-native-calendars';
+import { BlurView } from 'expo-blur';
+
+const { width } = Dimensions.get('window');
+const cardWidth = width - 32;
 
 export default function WellnessScreen() {
   const [dailyQuote, setDailyQuote] = useState({ text: '', author: '' });
@@ -63,125 +67,107 @@ export default function WellnessScreen() {
       {/* Quote of the Day */}
       <View style={styles.quoteCard}>
         <LinearGradient
-          colors={['#FF9DC4', '#FF6B9C']}
+          colors={['#FFE1EC', '#FFF0F5']}
           style={styles.quoteGradient}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
         >
-          <View style={styles.quoteIconContainer}>
-            <Ionicons name="flower" size={24} color="#fff" />
+          <View style={styles.quoteContent}>
+            <Text style={styles.quoteEmoji}>✨</Text>
+            <Text style={styles.quoteText}>"{dailyQuote.text}"</Text>
+            <Text style={styles.quoteAuthor}>— {dailyQuote.author}</Text>
           </View>
-          <Text style={styles.quoteTitle}>Daily Inspiration ✨</Text>
-          <Text style={styles.quoteText}>"{dailyQuote.text}"</Text>
-          <Text style={styles.quoteAuthor}>- {dailyQuote.author}</Text>
         </LinearGradient>
       </View>
 
-      {/* Mood & Energy Tracking */}
-      <View style={styles.card}>
-        <LinearGradient
-          colors={['#92A3FD', '#9DCEFF']}
-          style={styles.cardGradient}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
+      {/* Main Cards Container */}
+      <View style={styles.cardsContainer}>
+        {/* Mood & Energy Tracking */}
+        <TouchableOpacity
+          style={styles.mainCard}
+          onPress={() => setWellnessCheckVisible(true)}
         >
-          <View style={styles.cardHeader}>
-            <View style={styles.iconContainer}>
-              <Ionicons name="heart" size={24} color="#fff" />
-            </View>
-            <Text style={styles.cardTitle}>Self-Care Check</Text>
-          </View>
-
-          <Text style={styles.wellnessDescription}>
-            Take a moment for yourself. Track your mood, energy, and thoughts 🌸
-          </Text>
-
-          <TouchableOpacity
-            style={styles.checkButton}
-            onPress={() => setWellnessCheckVisible(true)}
+          <LinearGradient
+            colors={['#FFF0F5', '#FFE1EC']}
+            style={styles.cardGradient}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
           >
-            <Text style={styles.checkButtonText}>Daily Check-in ✨</Text>
-          </TouchableOpacity>
-        </LinearGradient>
-      </View>
-
-      {/* Period Tracking */}
-      <View style={styles.card}>
-        <LinearGradient
-          colors={['#FF9DC4', '#FF6B9C']}
-          style={styles.cardGradient}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-        >
-          <View style={styles.cardHeader}>
-            <View style={styles.iconContainer}>
-              <Ionicons name="calendar" size={24} color="#fff" />
+            <View style={styles.cardContent}>
+              <View style={styles.cardHeader}>
+                <Text style={styles.cardEmoji}>🌸</Text>
+                <Text style={styles.cardTitle}>Daily Check-in</Text>
+              </View>
+              <Text style={styles.cardDescription}>
+                Track your mood, energy, and thoughts
+              </Text>
             </View>
-            <Text style={styles.cardTitle}>Cycle Tracking</Text>
-          </View>
+          </LinearGradient>
+        </TouchableOpacity>
 
-          <Text style={styles.wellnessDescription}>
-            Track your cycle, symptoms, and get personalized insights 📅
-          </Text>
-
-          <TouchableOpacity
-            style={styles.checkButton}
-            onPress={() => setPeriodTrackerVisible(true)}
+        {/* Period Tracking */}
+        <TouchableOpacity
+          style={styles.mainCard}
+          onPress={() => setPeriodTrackerVisible(true)}
+        >
+          <LinearGradient
+            colors={['#FFE1EC', '#FFF0F5']}
+            style={styles.cardGradient}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
           >
-            <Text style={styles.checkButtonText}>Open Tracker 🌙</Text>
-          </TouchableOpacity>
-        </LinearGradient>
-      </View>
+            <View style={styles.cardContent}>
+              <View style={styles.cardHeader}>
+                <Text style={styles.cardEmoji}>🌙</Text>
+                <Text style={styles.cardTitle}>Cycle Tracking</Text>
+              </View>
+              <Text style={styles.cardDescription}>
+                Monitor your cycle and symptoms
+              </Text>
+            </View>
+          </LinearGradient>
+        </TouchableOpacity>
 
-      {/* Self-Care Tips */}
-      <View style={styles.card}>
-        <LinearGradient
-          colors={['#92A3FD', '#9DCEFF']}
-          style={styles.cardGradient}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-        >
-          <View style={styles.cardHeader}>
-            <View style={styles.iconContainer}>
-              <Ionicons name="sparkles" size={24} color="#fff" />
+        {/* Self-Care Tips */}
+        <View style={styles.tipsContainer}>
+          <Text style={styles.tipsTitle}>Daily Self-Care</Text>
+          <View style={styles.tipsGrid}>
+            <View style={styles.tipCard}>
+              <Text style={styles.tipEmoji}>😴</Text>
+              <Text style={styles.tipText}>Beauty Sleep</Text>
             </View>
-            <Text style={styles.cardTitle}>Self-Care Tips</Text>
-          </View>
-
-          <View style={styles.tipsList}>
-            <View style={styles.tipItem}>
-              <Ionicons name="moon" size={20} color="#fff" />
-              <Text style={styles.tipText}>Get 7-9 hours of beauty sleep 😴</Text>
+            <View style={styles.tipCard}>
+              <Text style={styles.tipEmoji}>🧘‍♀️</Text>
+              <Text style={styles.tipText}>Mindfulness</Text>
             </View>
-            <View style={styles.tipItem}>
-              <Ionicons name="leaf" size={20} color="#fff" />
-              <Text style={styles.tipText}>Take mindful breaks during the day 🧘‍♀️</Text>
+            <View style={styles.tipCard}>
+              <Text style={styles.tipEmoji}>💧</Text>
+              <Text style={styles.tipText}>Hydration</Text>
             </View>
-            <View style={styles.tipItem}>
-              <Ionicons name="water" size={20} color="#fff" />
-              <Text style={styles.tipText}>Stay hydrated for glowing skin ✨</Text>
-            </View>
-            <View style={styles.tipItem}>
-              <Ionicons name="heart" size={20} color="#fff" />
-              <Text style={styles.tipText}>Practice self-love daily 💝</Text>
+            <View style={styles.tipCard}>
+              <Text style={styles.tipEmoji}>💝</Text>
+              <Text style={styles.tipText}>Self-Love</Text>
             </View>
           </View>
-        </LinearGradient>
+        </View>
       </View>
 
       {/* Period Tracker Modal */}
       <Modal
-        animationType="slide"
+        animationType="fade"
         transparent={true}
         visible={periodTrackerVisible}
         onRequestClose={() => setPeriodTrackerVisible(false)}
       >
-        <View style={styles.modalContainer}>
+        <BlurView intensity={90} style={styles.modalContainer}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Cycle Tracker</Text>
-              <TouchableOpacity onPress={() => setWellnessCheckVisible(false)}>
-                <Ionicons name="close" size={24} color="#000" />
+              <TouchableOpacity
+                style={styles.closeButton}
+                onPress={() => setPeriodTrackerVisible(false)}
+              >
+                <Ionicons name="close-circle-outline" size={28} color="#FF6B9C" />
               </TouchableOpacity>
             </View>
 
@@ -192,17 +178,15 @@ export default function WellnessScreen() {
                 selectedDayBackgroundColor: '#FF6B9C',
                 todayTextColor: '#FF6B9C',
                 arrowColor: '#FF6B9C',
+                monthTextColor: '#333',
+                textMonthFontSize: 18,
+                textMonthFontWeight: '600',
+                textDayFontSize: 16,
+                textDayHeaderFontSize: 14,
               }}
             />
-
-            <TouchableOpacity
-              style={styles.modalCloseButton}
-              onPress={() => setPeriodTrackerVisible(false)}
-            >
-              <Text style={styles.modalCloseButtonText}>Close</Text>
-            </TouchableOpacity>
           </View>
-        </View>
+        </BlurView>
       </Modal>
 
       {/* Daily Check-in Modal */}
@@ -212,12 +196,15 @@ export default function WellnessScreen() {
         visible={wellnessCheckVisible}
         onRequestClose={() => setWellnessCheckVisible(false)}
       >
-        <View style={styles.modalContainer}>
+        <BlurView intensity={90} style={styles.modalContainer}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Daily Check-in 🌸</Text>
-              <TouchableOpacity onPress={() => setWellnessCheckVisible(false)}>
-                <Ionicons name="close" size={24} color="#000" />
+              <TouchableOpacity
+                style={styles.closeButton}
+                onPress={() => setWellnessCheckVisible(false)}
+              >
+                <Ionicons name="close-circle-outline" size={28} color="#FF6B9C" />
               </TouchableOpacity>
             </View>
 
@@ -237,10 +224,10 @@ export default function WellnessScreen() {
                       styles.ratingButtonText,
                       moodRating === rating && styles.ratingButtonTextSelected
                     ]}>
-                      {rating === 1 ? '😔' : 
-                       rating === 2 ? '😕' : 
-                       rating === 3 ? '😊' : 
-                       rating === 4 ? '😃' : '🤗'}
+                      {rating === 1 ? '😔' :
+                        rating === 2 ? '😕' :
+                          rating === 3 ? '😊' :
+                            rating === 4 ? '😃' : '🤗'}
                     </Text>
                   </TouchableOpacity>
                 ))}
@@ -263,10 +250,10 @@ export default function WellnessScreen() {
                       styles.ratingButtonText,
                       energyRating === rating && styles.ratingButtonTextSelected
                     ]}>
-                      {rating === 1 ? '🔋' : 
-                       rating === 2 ? '🔋🔋' : 
-                       rating === 3 ? '🔋🔋🔋' : 
-                       rating === 4 ? '🔋🔋🔋🔋' : '🔋🔋🔋🔋🔋'}
+                      {rating === 1 ? '🔋' :
+                        rating === 2 ? '🔋🔋' :
+                          rating === 3 ? '🔋🔋🔋' :
+                            rating === 4 ? '🔋🔋🔋🔋' : '🔋🔋🔋🔋🔋'}
                     </Text>
                   </TouchableOpacity>
                 ))}
@@ -289,10 +276,10 @@ export default function WellnessScreen() {
                       styles.ratingButtonText,
                       sleepRating === rating && styles.ratingButtonTextSelected
                     ]}>
-                      {rating === 1 ? '😴' : 
-                       rating === 2 ? '😴😴' : 
-                       rating === 3 ? '😴😴😴' : 
-                       rating === 4 ? '😴😴😴😴' : '😴😴😴😴😴'}
+                      {rating === 1 ? '😴' :
+                        rating === 2 ? '😴😴' :
+                          rating === 3 ? '😴😴😴' :
+                            rating === 4 ? '😴😴😴😴' : '😴😴😴😴😴'}
                     </Text>
                   </TouchableOpacity>
                 ))}
@@ -318,7 +305,7 @@ export default function WellnessScreen() {
               </LinearGradient>
             </TouchableOpacity>
           </View>
-        </View>
+        </BlurView>
       </Modal>
     </ScrollView>
   );
@@ -328,140 +315,172 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#fff',
-    paddingTop: 60,
   },
   quoteCard: {
-    margin: 20,
-    borderRadius: 25,
+    margin: 16,
+    marginTop: 44,
+    borderRadius: 24,
     overflow: 'hidden',
-    elevation: 5,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#FFB6C1',
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.15,
+        shadowRadius: 12,
+      },
+      android: {
+        elevation: 8,
+      },
+    }),
+    padding: 20,
   },
   quoteGradient: {
-    padding: 25,
+    borderRadius: 24,
+    padding: 20,
+  },
+  quoteContent: {
     alignItems: 'center',
   },
-  quoteIconContainer: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 15,
-  },
-  quoteTitle: {
-    color: '#fff',
-    fontSize: 22,
-    fontWeight: '600',
-    marginBottom: 20,
+  quoteEmoji: {
+    fontSize: 32,
+    marginBottom: 16,
   },
   quoteText: {
-    color: '#fff',
     fontSize: 18,
-    fontStyle: 'italic',
+    color: '#333',
     textAlign: 'center',
-    marginBottom: 15,
+    fontWeight: '500',
     lineHeight: 26,
+    marginBottom: 12,
   },
   quoteAuthor: {
-    color: '#fff',
-    fontSize: 16,
-    opacity: 0.9,
+    fontSize: 15,
+    color: '#666',
+    fontWeight: '500',
   },
-  card: {
-    margin: 20,
-    marginTop: 0,
-    borderRadius: 25,
+  cardsContainer: {
+    padding: 16,
+  },
+  mainCard: {
+    marginBottom: 16,
+    borderRadius: 24,
     overflow: 'hidden',
-    elevation: 5,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#FFB6C1',
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.15,
+        shadowRadius: 12,
+      },
+      android: {
+        elevation: 8,
+      },
+    }),
   },
   cardGradient: {
-    padding: 25,
+    borderRadius: 24,
+    padding: 24,
+  },
+  cardContent: {
+    flex: 1,
   },
   cardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 25,
+    marginBottom: 12,
   },
-  iconContainer: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 15,
+  cardEmoji: {
+    fontSize: 24,
+    marginRight: 12,
   },
   cardTitle: {
-    color: '#fff',
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: '600',
+    color: '#333',
   },
-  wellnessDescription: {
-    color: '#fff',
+  cardDescription: {
     fontSize: 16,
-    marginBottom: 25,
-    textAlign: 'center',
-    lineHeight: 24,
+    color: '#666',
+    lineHeight: 22,
   },
-  checkButton: {
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    padding: 15,
-    borderRadius: 25,
-    alignItems: 'center',
+  tipsContainer: {
+    marginTop: 8,
   },
-  checkButtonText: {
-    color: '#fff',
-    fontSize: 18,
+  tipsTitle: {
+    fontSize: 20,
     fontWeight: '600',
+    color: '#333',
+    marginBottom: 16,
   },
-  tipsList: {
-    gap: 15,
-  },
-  tipItem: {
+  tipsGrid: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+  },
+  tipCard: {
+    width: (cardWidth - 16) / 2,
+    backgroundColor: '#FFF0F5',
+    borderRadius: 20,
+    padding: 20,
+    marginBottom: 16,
     alignItems: 'center',
-    gap: 10,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    padding: 15,
-    borderRadius: 15,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#FFB6C1',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.1,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
+  },
+  tipEmoji: {
+    fontSize: 32,
+    marginBottom: 12,
   },
   tipText: {
-    color: '#fff',
     fontSize: 16,
-    flex: 1,
+    color: '#333',
+    fontWeight: '500',
   },
   modalContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
   },
   modalContent: {
+    width: cardWidth,
     backgroundColor: '#fff',
-    borderRadius: 25,
-    padding: 20,
-    width: '90%',
-    maxHeight: '90%',
+    borderRadius: 24,
+    padding: 24,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 12 },
+        shadowOpacity: 0.15,
+        shadowRadius: 16,
+      },
+      android: {
+        elevation: 12,
+      },
+    }),
   },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 24,
   },
   modalTitle: {
     fontSize: 24,
     fontWeight: '600',
-    color: '#000',
+    color: '#333',
+  },
+  closeButton: {
+    padding: 4,
   },
   ratingSection: {
     marginBottom: 25,
@@ -503,18 +522,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   submitButtonText: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: '600',
-  },
-  modalCloseButton: {
-    backgroundColor: '#FF6B9C',
-    padding: 15,
-    borderRadius: 25,
-    alignItems: 'center',
-    marginTop: 20,
-  },
-  modalCloseButtonText: {
     color: '#fff',
     fontSize: 18,
     fontWeight: '600',

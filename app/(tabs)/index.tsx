@@ -205,10 +205,7 @@ const HomeScreen = () => {
             duration,
             difficulty,
             icon
-          ),
-          scheduled_time,
-          notification_sent,
-          notification_retry_count
+          )
         `)
         .eq('user_id', user.id)
         .eq('assigned_date', today)
@@ -218,77 +215,6 @@ const HomeScreen = () => {
 
       if (data?.workout) {
         setTodayWorkout(data.workout);
-
-        // Only send notification if it hasn't been sent yet or if retries are available
-        const maxRetries = 3;
-        const retryCount = data.notification_retry_count || 0;
-
-        if (!data.notification_sent && retryCount < maxRetries) {
-          // Format time for notification
-          const scheduledTime = data.scheduled_time || '09:00:00';
-          const [hours, minutes] = scheduledTime.split(':');
-
-          // Create date object for scheduled time today
-          const timeDate = new Date();
-          timeDate.setHours(parseInt(hours), parseInt(minutes), 0, 0);
-
-          // Format time in user's locale
-          const formattedTime = timeDate.toLocaleTimeString(undefined, {
-            hour: 'numeric',
-            minute: '2-digit',
-            hour12: true
-          });
-
-          // Send Andree's workout notification if it's 30 minutes before the scheduled time
-          const now = new Date();
-          const timeDiff = timeDate.getTime() - now.getTime();
-          const minutesUntilWorkout = Math.floor(timeDiff / (1000 * 60));
-
-          // Only send if workout is within the next 30 minutes and hasn't started yet
-          if (minutesUntilWorkout <= 30 && minutesUntilWorkout > 0) {
-            const notificationSent = await createWorkoutNotification(
-              user.id,
-              data.workout.name,
-              formattedTime,
-              data.workout.duration,
-              data.workout.difficulty
-            );
-
-            if (notificationSent) {
-              // Mark notification as sent
-              await supabase
-                .from('assigned_workouts')
-                .update({
-                  notification_sent: true,
-                  notification_retry_count: retryCount + 1,
-                  updated_at: new Date().toISOString()
-                })
-                .eq('id', data.id);
-            } else {
-              // Update retry count on failure
-              await supabase
-                .from('assigned_workouts')
-                .update({
-                  notification_retry_count: retryCount + 1,
-                  updated_at: new Date().toISOString()
-                })
-                .eq('id', data.id);
-            }
-          }
-        }
-
-        // Reset notification flags at midnight
-        const now = new Date();
-        if (now.getHours() === 0 && now.getMinutes() === 0) {
-          await supabase
-            .from('assigned_workouts')
-            .update({
-              notification_sent: false,
-              notification_retry_count: 0,
-              updated_at: new Date().toISOString()
-            })
-            .eq('id', data.id);
-        }
       }
     } catch (error) {
       console.error('Error fetching today workout:', error);
@@ -674,17 +600,27 @@ const HomeScreen = () => {
               onPress={() => router.push('/bmi-calculator')}
             >
               <LinearGradient
-                colors={['#6BCF91', '#4BA36E']}
+                colors={['#6B8CFF', '#4B6FE0']}
                 style={styles.iconContainer}
               >
-                <Ionicons name="stats-chart-outline" size={24} color="#fff" />
+                <Ionicons name="body-outline" size={24} color="#fff" />
               </LinearGradient>
               <Text style={styles.quickActionTitle}>BMI Score</Text>
-              <Text style={styles.quickActionValue}>
-                {profile.weight && profile.height
-                  ? (Number(profile.weight) / Math.pow(Number(profile.height) / 100, 2)).toFixed(1)
-                  : 'Calculate'}
-              </Text>
+              <Text style={styles.quickActionSubtext}>Calculate BMI</Text>
+            </TouchableOpacity>
+
+            {/* Weight Tracker */}
+            <TouchableOpacity
+              style={styles.quickActionCard}
+              onPress={() => router.push('/weight-tracker')}
+            >
+              <LinearGradient
+                colors={['#92A3FD', '#9DCEFF']}
+                style={styles.iconContainer}
+              >
+                <Ionicons name="scale-outline" size={24} color="#fff" />
+              </LinearGradient>
+              <Text style={styles.quickActionTitle}>Weight Tracker</Text>
             </TouchableOpacity>
 
             {/* Health Tracker */}
@@ -1041,6 +977,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
+    marginBottom: 25,
     marginTop: 16,
   },
   quickActionCard: {
