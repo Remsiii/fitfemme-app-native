@@ -784,7 +784,7 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 18,
     fontWeight: '600',
-    marginBottom: 5,
+    marginBottom: 1,
   },
   reminderText: {
     color: '#fff',

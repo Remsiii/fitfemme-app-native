@@ -1,3 +1,3 @@
-import OnboardingScreen from '@/components/ScreensOnboarding/OnboardingScreen';
+import WelcomeScreen from './screens/WelcomeScreen';
 
-export default OnboardingScreen;
+export default WelcomeScreen;

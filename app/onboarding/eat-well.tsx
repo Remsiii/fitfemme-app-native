@@ -1,3 +1,3 @@
-import EatWellScreen from '@/components/OnboardingScreens/EatWellScreen';
+import EatWellScreen from './screens/EatWellScreen';
 
 export default EatWellScreen;

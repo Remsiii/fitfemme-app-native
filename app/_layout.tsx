@@ -63,7 +63,12 @@ export default function RootLayout() {
     <SettingsProvider>
       <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
         <NotificationsProvider>
-          <Stack>
+          <Stack
+            screenOptions={{
+              headerShown: false,
+              navigationBarHidden: true,
+            }}
+          >
             <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
             <Stack.Screen name="(auth)" options={{ headerShown: false }} />
             <Stack.Screen name="profile-setup" options={{

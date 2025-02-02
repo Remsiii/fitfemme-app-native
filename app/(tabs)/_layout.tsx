@@ -21,9 +21,18 @@ function TabBarIcon(props: {
   focused: boolean;
 }) {
   return (
-    <View style={[styles.iconContainer, props.focused && styles.activeIconContainer]}>
-      <FontAwesome size={24} {...props} />
-    </View>
+    <MotiView
+      animate={{
+        scale: props.focused ? 1.1 : 1,
+      }}
+      transition={{ type: 'timing', duration: 200 }}
+      style={[
+        styles.iconContainer,
+        props.focused && styles.activeIconContainer,
+      ]}
+    >
+      <FontAwesome size={22} {...props} />
+    </MotiView>
   );
 }
 
@@ -64,7 +73,7 @@ function AddButton({ onPress, focused }: AddButtonProps) {
           backgroundColor: '#ff758f',
           alignItems: 'center',
           justifyContent: 'center',
-          marginBottom: 20, // etwas Abstand nach oben
+          marginBottom: 20,
         }}
       >
         <Ionicons name="add" size={32} color="#fff" />
@@ -76,14 +85,14 @@ function AddButton({ onPress, focused }: AddButtonProps) {
         transition={{ type: 'timing', duration: 300 }}
         style={{
           position: 'absolute',
-          bottom: 80, // leicht über dem Plus-Button
-          left: '50%',
-          // Wir verschieben uns um die Hälfte (90px), damit es zentriert ist
-          transform: [{ translateX: -90 }],
-          width: 180, // Platz für drei Icons nebeneinander
+          bottom: 80,
+          left: '-120%',
+          transform: [{ translateX: -90 }], // Die Hälfte der width (180/2)
+          width: 180,
           flexDirection: 'row',
           justifyContent: 'space-between',
           alignItems: 'center',
+          backgroundColor: 'transparent',
         }}
       >
         {/* Linkes Icon */}
@@ -97,7 +106,9 @@ function AddButton({ onPress, focused }: AddButtonProps) {
         {/* Mittleres Icon */}
         <Pressable
           onPress={() => console.log('Mittleres Icon geklickt')}
-          style={styles.menuOption}
+          style={[styles.menuOption, {
+            transform: [{ translateY: -15 }], // Moves the middle icon higher
+          }]}
         >
           <Ionicons name="water-outline" size={20} color="#fff" />
         </Pressable>
@@ -132,21 +143,25 @@ export default function TabLayout() {
           right: 20,
           elevation: 0,
           borderRadius: 20,
-          height: 55,
+          height: 65,
           backgroundColor: isDark ? 'rgba(30, 30, 30, 0.9)' : 'rgba(255, 255, 255, 0.9)',
           borderTopWidth: 0,
           shadowColor: '#000',
           shadowOffset: { width: 0, height: 4 },
           shadowOpacity: 0.1,
           shadowRadius: 12,
+          paddingHorizontal: 10,
+          paddingTop: 12,
           ...Platform.select({
             ios: { backdropFilter: 'blur(20px)' },
             android: { elevation: 8 },
           }),
         },
         tabBarItemStyle: {
-          height: 55,
-          paddingBottom: 10,
+          height: 54,
+          marginTop: 3,
+          justifyContent: 'center',
+          alignItems: 'center',
         },
         tabBarShowLabel: false,
         headerTransparent: true,
@@ -240,23 +255,46 @@ export default function TabLayout() {
 
 const styles = StyleSheet.create({
   iconContainer: {
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
+    width: 45,
+    height: 45,
+    borderRadius: 23,
     alignItems: 'center',
-    borderRadius: 12,
-    marginTop: 15,
+    justifyContent: 'center',
+    backgroundColor: 'transparent',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 3,
+      },
+      android: {
+        elevation: 3,
+      },
+    }),
   },
   activeIconContainer: {
-    backgroundColor: '#fff1f3',
+    backgroundColor: '#ff758f15',
+    transform: [{ translateY: -4 }],
   },
-  // Stil für die drei horizontalen Menü-Icons
   menuOption: {
     width: 40,
     height: 40,
     borderRadius: 20,
     backgroundColor: '#ff758f',
-    justifyContent: 'center',
     alignItems: 'center',
+    justifyContent: 'center',
+    marginHorizontal: 15,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.2,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
   },
 });
