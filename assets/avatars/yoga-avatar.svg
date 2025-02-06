@@ -1,8 +1,1 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<svg width="200px" height="200px" viewBox="0 0 200 200" version="1.1" xmlns="http://www.w3.org/2000/svg">
-    <circle cx="100" cy="100" r="95" fill="#f8d7da" stroke="#ff758f" stroke-width="4"/>
-    <g transform="translate(50, 50)">
-        <circle cx="50" cy="30" r="15" fill="#ff758f"/>
-        <path d="M50,45 C30,60 70,60 50,45 M30,80 Q50,100 70,80" fill="none" stroke="#ff758f" stroke-width="8" stroke-linecap="round"/>
-    </g>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" version="1.1" viewBox="0 0 200 200"><circle cx="100" cy="100" r="95" fill="#f8d7da" stroke="#ff758f" stroke-width="4"/><g transform="translate(50, 50)"><circle cx="50" cy="30" r="15" fill="#ff758f"/><path fill="none" stroke="#ff758f" stroke-linecap="round" stroke-width="8" d="M50,45 C30,60 70,60 50,45 M30,80 Q50,100 70,80"/></g></svg>

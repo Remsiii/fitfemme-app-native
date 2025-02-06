@@ -1,9 +1,1 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<svg width="200px" height="200px" viewBox="0 0 200 200" version="1.1" xmlns="http://www.w3.org/2000/svg">
-    <circle cx="100" cy="100" r="95" fill="#f8d7da" stroke="#ff758f" stroke-width="4"/>
-    <g transform="translate(60, 50)">
-        <path d="M40,20 C60,20 80,40 80,60" fill="none" stroke="#ff758f" stroke-width="8" stroke-linecap="round"/>
-        <circle cx="40" cy="40" r="20" fill="#ff758f"/>
-        <path d="M30,80 L50,100 L70,80" fill="none" stroke="#ff758f" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
-    </g>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" version="1.1" viewBox="0 0 200 200"><circle cx="100" cy="100" r="95" fill="#f8d7da" stroke="#ff758f" stroke-width="4"/><g transform="translate(60, 50)"><path fill="none" stroke="#ff758f" stroke-linecap="round" stroke-width="8" d="M40,20 C60,20 80,40 80,60"/><circle cx="40" cy="40" r="20" fill="#ff758f"/><path fill="none" stroke="#ff758f" stroke-linecap="round" stroke-linejoin="round" stroke-width="8" d="M30,80 L50,100 L70,80"/></g></svg>
