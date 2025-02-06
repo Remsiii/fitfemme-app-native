@@ -12,6 +12,7 @@ import React, { useState, useRef, useEffect } from "react";
 import { Defs, RadialGradient, Rect, Stop, Svg } from "react-native-svg";
 import { HEIGHT, WIDTH } from "@/configs/constants";
 import { moderateScale, scale, verticalScale } from "react-native-size-matters";
+import { useRouter } from "expo-router";
 import {
   fontSizes,
   SCREEN_WIDTH,
@@ -22,6 +23,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 // import AuthModal from "../auth/auth.modal";
 import * as Haptics from "expo-haptics";
+import { useNavigation } from "@react-navigation/native";
 
 interface onBoardingSlidesTypes {
   title: string;
@@ -43,7 +45,9 @@ export default function Slide({
   setIndex: (value: number) => void;
   totalSlides: number;
 }) {
+  const navigation = useNavigation<any>();
   const [modalVisible, setModalVisible] = useState(false);
+  const router = useRouter()
   
   // NEW: typed states for title & secondTitle when animation is enabled
   const [typedTitle, setTypedTitle] = useState("");
@@ -90,8 +94,9 @@ export default function Slide({
   }, [slide.animate, slide.title, slide.secondTitle]);
 
   const handlePress = (index: number, setIndex: (index: number) => void) => {
-    if (index === 2) {
-      setModalVisible(true);
+    if (index === totalSlides - 1) {
+      // Navigate to register/login screen at end
+      router.push("/register") // Adjust route name as needed
     } else {
       setIndex(index + 1);
     }
