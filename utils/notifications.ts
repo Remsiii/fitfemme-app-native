@@ -73,3 +73,22 @@ export async function createPeriodNotification(userId: string, daysUntil: number
 export async function createSystemNotification(userId: string, message: string) {
   return createNotification(userId, 'system', message);
 }
+
+export async function getUnreadNotificationCount(userId: string): Promise<number | null> {
+  try {
+    const { data, error } = await supabase
+      .from('notifications')
+      .select('*', { count: 'exact' })
+      .eq('user_id', userId)
+      .eq('read', false);
+
+    if (error) {
+      throw error;
+    }
+
+    return data ? data.length : 0;
+  } catch (error) {
+    console.error('Error fetching unread notification count:', error);
+    return null;
+  }
+}

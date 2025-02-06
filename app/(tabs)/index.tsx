@@ -579,6 +579,20 @@ const HomeScreen = () => {
               <Text style={styles.quickActionValue}>{waterIntake} ml</Text>
             </TouchableOpacity>
 
+            <TouchableOpacity
+              style={styles.quickActionCard}
+              onPress={() => router.push('/onboarding/onboardingscreen')}
+            >
+              <LinearGradient
+                colors={['#6B8CFF', '#4B6FE0']}
+                style={styles.iconContainer}
+              >
+                <Ionicons name="water-outline" size={24} color="#fff" />
+              </LinearGradient>
+              <Text style={styles.quickActionTitle}>Onobarding</Text>
+              <Text style={styles.quickActionValue}>{waterIntake} ml</Text>
+            </TouchableOpacity>
+
             {/* Period Tracker */}
             <TouchableOpacity
               style={styles.quickActionCard}
